@@ -12,7 +12,7 @@ export function GuestOnlyRoute() {
   }
 
   if (session) {
-    const destination = location.state?.from?.pathname || "/dashboard"
+    const destination = location.state?.from?.pathname || "/"
     return <Navigate to={destination} replace />
   }
 

@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { Link, useLocation, useNavigate } from "react-router-dom"
-import { ArrowRight, KeyRound, Layers3, Orbit, ShieldCheck } from "lucide-react"
+import { ArrowRight, KeyRound } from "lucide-react"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -40,27 +40,6 @@ const authCopy = {
   },
 }
 
-const highlights = [
-  {
-    icon: Layers3,
-    title: "Vite + React baseline",
-    description:
-      "Fast dev server, clean routing, and a starter shell that is ready for feature work.",
-  },
-  {
-    icon: Orbit,
-    title: "Supabase session wiring",
-    description:
-      "Email/password auth, session restoration, protected routes, and sign-out flow are already connected.",
-  },
-  {
-    icon: ShieldCheck,
-    title: "shadcn/ui primitives",
-    description:
-      "Tailwind v4 theming and reusable UI components are in place without locking you into a heavyweight framework.",
-  },
-]
-
 function getErrorMessage(error) {
   if (error instanceof Error) {
     return error.message
@@ -69,17 +48,29 @@ function getErrorMessage(error) {
   return "Something went wrong. Please try again."
 }
 
+async function clearLocalSupabaseSession() {
+  if (!supabase) {
+    return
+  }
+
+  const { error } = await supabase.auth.signOut({ scope: "local" })
+
+  if (error) {
+    await supabase.auth.signOut().catch(() => undefined)
+  }
+}
+
 export function AuthPage({ mode }) {
   const navigate = useNavigate()
   const location = useLocation()
-  const { isConfigured, sessionError } = useAuth()
+  const { authNotice, isConfigured, sessionError } = useAuth()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [feedback, setFeedback] = useState({ type: "", message: "" })
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const copy = authCopy[mode]
-  const redirectTo = location.state?.from?.pathname || "/dashboard"
+  const redirectTo = location.state?.from?.pathname || "/"
 
   const handleSubmit = async (event) => {
     event.preventDefault()
@@ -97,6 +88,8 @@ export function AuthPage({ mode }) {
 
     try {
       if (mode === "sign-in") {
+        await clearLocalSupabaseSession()
+
         const { error } = await supabase.auth.signInWithPassword({
           email,
           password,
@@ -108,7 +101,7 @@ export function AuthPage({ mode }) {
 
         navigate(redirectTo, { replace: true })
       } else {
-        const emailRedirectTo = `${window.location.origin}/dashboard`
+        const emailRedirectTo = `${window.location.origin}/`
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
@@ -120,7 +113,7 @@ export function AuthPage({ mode }) {
         }
 
         if (data.session) {
-          navigate("/dashboard", { replace: true })
+          navigate("/", { replace: true })
           return
         }
 
@@ -144,49 +137,8 @@ export function AuthPage({ mode }) {
     <div className="relative isolate min-h-screen overflow-hidden">
       <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top_left,rgba(14,165,233,0.18),transparent_30%),radial-gradient(circle_at_85%_18%,rgba(251,146,60,0.16),transparent_24%),linear-gradient(180deg,rgba(255,255,255,0.72),rgba(248,250,252,0.98))] dark:bg-[radial-gradient(circle_at_top_left,rgba(14,165,233,0.24),transparent_30%),radial-gradient(circle_at_85%_18%,rgba(251,146,60,0.16),transparent_24%),linear-gradient(180deg,rgba(2,6,23,0.96),rgba(15,23,42,1))]" />
 
-      <main className="mx-auto flex min-h-screen w-full max-w-6xl items-center px-4 py-10">
-        <div className="grid w-full gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-          <section className="flex flex-col justify-between rounded-[32px] border border-white/60 bg-white/70 p-8 shadow-[0_30px_120px_-40px_rgba(15,23,42,0.45)] backdrop-blur dark:border-white/10 dark:bg-black/25 lg:p-10">
-            <div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/80 px-3 py-1 text-xs font-medium uppercase tracking-[0.24em] text-muted-foreground">
-                React starter
-              </div>
-              <h1 className="mt-6 max-w-xl text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
-                A clean auth starter for shipping real product work.
-              </h1>
-              <p className="mt-5 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
-                The scaffold already includes Vite, React Router, Tailwind v4,
-                shadcn/ui, and a browser-ready Supabase client. Replace the demo
-                pages with domain features instead of rebuilding auth plumbing.
-              </p>
-            </div>
-
-            <div className="mt-10 grid gap-4">
-              {highlights.map((highlight) => {
-                const Icon = highlight.icon
-
-                return (
-                  <div
-                    key={highlight.title}
-                    className="flex gap-4 rounded-2xl border border-border/70 bg-background/70 p-4"
-                  >
-                    <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                      <Icon className="size-5" />
-                    </div>
-                    <div>
-                      <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-foreground/80">
-                        {highlight.title}
-                      </h2>
-                      <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                        {highlight.description}
-                      </p>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </section>
-
+      <main className="mx-auto flex min-h-screen w-full max-w-xl items-center px-4 py-10">
+        <div className="w-full">
           <Card className="border-white/60 bg-white/82 py-0 shadow-[0_30px_120px_-44px_rgba(15,23,42,0.55)] backdrop-blur dark:border-white/10 dark:bg-black/40">
             <CardHeader className="gap-3 border-b border-border/70 px-6 py-6">
               <div className="inline-flex size-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20">
@@ -224,6 +176,13 @@ export function AuthPage({ mode }) {
                 <Alert variant="destructive">
                   <AlertTitle>Session check failed</AlertTitle>
                   <AlertDescription>{sessionError}</AlertDescription>
+                </Alert>
+              ) : null}
+
+              {authNotice ? (
+                <Alert variant="destructive">
+                  <AlertTitle>Access restricted</AlertTitle>
+                  <AlertDescription>{authNotice}</AlertDescription>
                 </Alert>
               ) : null}
 

@@ -4,10 +4,9 @@ import { AccessDeniedScreen } from "@/components/access-denied-screen"
 import { LoadingScreen } from "@/components/loading-screen"
 import { useAuth } from "@/contexts/auth-context"
 
-export function ProtectedRoute() {
+export function AuthenticatedRoute() {
   const location = useLocation()
-  const { isConfigured, isLoading, isSuperadmin, profileError, session } =
-    useAuth()
+  const { isConfigured, isLoading, profileError, session } = useAuth()
 
   if (isLoading) {
     return <LoadingScreen />
@@ -24,10 +23,6 @@ export function ProtectedRoute() {
         description={profileError}
       />
     )
-  }
-
-  if (!isSuperadmin) {
-    return <Navigate to="/chat" replace />
   }
 
   return <Outlet />
