@@ -17,7 +17,7 @@ function FilterSelect({ id, value, onChange, options, disabled = false }) {
   return (
     <select
       id={id}
-      className="flex h-10 w-full rounded-xl border border-border/70 bg-background px-3 text-sm outline-none transition focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-60"
+      className="flex h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none transition focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-60"
       value={value}
       onChange={onChange}
       disabled={disabled}
@@ -43,30 +43,21 @@ export function UserEditorCard({
   statusOptions,
 }) {
   return (
-    <Card className="border-white/60 bg-white/84 py-0 shadow-[0_30px_120px_-44px_rgba(15,23,42,0.4)] backdrop-blur">
-      <CardHeader className="gap-3 border-b border-border/70 px-6 py-6">
-        <div className="inline-flex size-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20">
-          {formMode === "create" ? (
-            <UserPlus className="size-5" />
-          ) : (
-            <ArrowUpRight className="size-5" />
-          )}
-        </div>
-        <div className="space-y-2">
-          <CardTitle className="text-2xl tracking-tight">
-            {formMode === "create" ? "Create user" : "Edit user"}
-          </CardTitle>
-          <CardDescription className="leading-6">
-            {formMode === "create"
-              ? "Provision a new account with a password, role, and initial status."
-              : "Update profile details and access level. Archive and delete actions stay in the user list."}
-          </CardDescription>
-        </div>
+    <Card className="py-0 shadow-none">
+      <CardHeader className="gap-2 border-b px-6 py-6">
+        <CardTitle className="text-xl tracking-tight">
+          {formMode === "create" ? "Create user" : "Edit user"}
+        </CardTitle>
+        <CardDescription className="leading-6">
+          {formMode === "create"
+            ? "Provision a new account with a password, role, and initial status."
+            : "Update profile details and access level. Archive and delete actions stay in the user list."}
+        </CardDescription>
       </CardHeader>
 
-      <CardContent className="space-y-5 px-6 py-6">
-        <form className="space-y-4" onSubmit={onSubmit}>
-          <div className="space-y-2">
+      <CardContent className="flex flex-col gap-5 px-6 py-6">
+        <form className="flex flex-col gap-4" onSubmit={onSubmit}>
+          <div className="flex flex-col gap-2">
             <Label htmlFor="full-name">Full name</Label>
             <Input
               id="full-name"
@@ -77,7 +68,7 @@ export function UserEditorCard({
             />
           </div>
 
-          <div className="space-y-2">
+          <div className="flex flex-col gap-2">
             <Label htmlFor="user-email">Email</Label>
             <Input
               id="user-email"
@@ -91,7 +82,7 @@ export function UserEditorCard({
           </div>
 
           {formMode === "create" ? (
-            <div className="space-y-2">
+            <div className="flex flex-col gap-2">
               <Label htmlFor="user-password">Temporary password</Label>
               <Input
                 id="user-password"
@@ -107,7 +98,7 @@ export function UserEditorCard({
           ) : null}
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
+            <div className="flex flex-col gap-2">
               <Label htmlFor="user-role">Role</Label>
               <FilterSelect
                 id="user-role"
@@ -118,7 +109,7 @@ export function UserEditorCard({
               />
             </div>
 
-            <div className="space-y-2">
+            <div className="flex flex-col gap-2">
               <Label htmlFor="user-status">Status</Label>
               <FilterSelect
                 id="user-status"
@@ -143,9 +134,14 @@ export function UserEditorCard({
           <div className="flex flex-col gap-3 sm:flex-row">
             <Button
               type="submit"
-              className="h-11 flex-1 rounded-2xl"
+              className="h-10 flex-1"
               disabled={isSubmitting}
             >
+              {formMode === "create" ? (
+                <UserPlus data-icon="inline-start" />
+              ) : (
+                <ArrowUpRight data-icon="inline-start" />
+              )}
               {isSubmitting
                 ? "Saving..."
                 : formMode === "create"
@@ -155,7 +151,7 @@ export function UserEditorCard({
             <Button
               type="button"
               variant="outline"
-              className="h-11 rounded-2xl"
+              className="h-10"
               onClick={onReset}
               disabled={isSubmitting}
             >
@@ -166,7 +162,7 @@ export function UserEditorCard({
 
         <Separator />
 
-        <div className="space-y-3 text-sm text-muted-foreground">
+        <div className="flex flex-col gap-3 text-sm text-muted-foreground">
           <p>
             Browser reads are limited by RLS, and every mutation runs through
             the protected <code>manage-users</code> Edge Function.

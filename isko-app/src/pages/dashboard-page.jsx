@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { LogOut, UserPlus } from "lucide-react"
+import { Menu, UserPlus } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 
+import { AdminSidebar } from "@/components/admin/admin-sidebar"
 import { DashboardMetrics } from "@/components/admin/dashboard-metrics"
 import { UserEditorCard } from "@/components/admin/user-editor-card"
 import { UserListPanel } from "@/components/admin/user-list-panel"
@@ -53,6 +54,7 @@ export function DashboardPage() {
   const [statusFilter, setStatusFilter] = useState("active")
   const [formMode, setFormMode] = useState("create")
   const [draft, setDraft] = useState(emptyDraft)
+  const [isNavOpen, setIsNavOpen] = useState(false)
 
   const loadUsers = useCallback(async () => {
     if (!supabase) {
@@ -146,6 +148,11 @@ export function DashboardPage() {
   const resetForm = () => {
     setFormMode("create")
     setDraft(emptyDraft)
+  }
+
+  const handleNewUser = () => {
+    resetForm()
+    setFeedback({ type: "", message: "" })
   }
 
   const startEditing = (user) => {
@@ -287,58 +294,66 @@ export function DashboardPage() {
   }
 
   return (
-    <div className="relative isolate min-h-screen overflow-hidden">
-      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top_left,rgba(14,165,233,0.16),transparent_28%),radial-gradient(circle_at_90%_0%,rgba(251,146,60,0.14),transparent_24%),linear-gradient(180deg,rgba(255,255,255,0.78),rgba(248,250,252,1))] dark:bg-[radial-gradient(circle_at_top_left,rgba(14,165,233,0.22),transparent_28%),radial-gradient(circle_at_90%_0%,rgba(251,146,60,0.16),transparent_24%),linear-gradient(180deg,rgba(2,6,23,0.96),rgba(15,23,42,1))]" />
+    <div className="min-h-screen bg-background text-foreground">
+      <div className="grid min-h-screen lg:grid-cols-[248px_minmax(0,1fr)]">
+        <aside className="hidden border-r bg-sidebar lg:block">
+          <AdminSidebar
+            isSigningOut={isSigningOut}
+            onSignOut={handleSignOut}
+            userEmail={userEmail}
+          />
+        </aside>
 
-      <header className="border-b border-border/70 bg-background/72 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 py-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">
-              Superadmin console
-            </p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight">
-              User management dashboard
-            </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-              Manage user access, archive accounts, restore archived users, and permanently delete accounts through a guarded Supabase admin workflow.
-            </p>
+        {isNavOpen ? (
+          <div
+            className="fixed inset-0 z-50 bg-black/40 lg:hidden"
+            onClick={() => setIsNavOpen(false)}
+          >
+            <aside
+              className="h-full w-[248px] border-r bg-sidebar"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <AdminSidebar
+                isSigningOut={isSigningOut}
+                isMobile
+                onClose={() => setIsNavOpen(false)}
+                onSignOut={handleSignOut}
+                userEmail={userEmail}
+              />
+            </aside>
           </div>
+        ) : null}
 
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="rounded-full border border-border/70 bg-background/80 px-4 py-2 text-sm text-muted-foreground">
-              Signed in as <span className="font-medium text-foreground">{userEmail}</span>
+        <div className="min-w-0">
+          <header className="border-b bg-background">
+            <div className="flex items-center gap-3 px-4 py-4 sm:px-6">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="lg:hidden"
+                onClick={() => setIsNavOpen(true)}
+                aria-label="Open navigation"
+              >
+                <Menu data-icon="inline-start" />
+              </Button>
+
+              <div className="min-w-0 flex-1">
+                <h1 className="text-lg font-medium">Users</h1>
+                <p className="text-sm text-muted-foreground">
+                  Manage access, archive accounts, restore archived users, and
+                  permanently delete accounts.
+                </p>
+              </div>
+
+              <Button type="button" variant="outline" onClick={handleNewUser}>
+                <UserPlus data-icon="inline-start" />
+                New user
+              </Button>
             </div>
-            <Button
-              type="button"
-              variant="outline"
-              className="rounded-full px-4"
-              onClick={() => {
-                resetForm()
-                setFeedback({ type: "", message: "" })
-              }}
-            >
-              <UserPlus className="size-4" />
-              New user
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="rounded-full px-4"
-              onClick={handleSignOut}
-              disabled={isSigningOut}
-            >
-              <LogOut className="size-4" />
-              {isSigningOut ? "Signing out..." : "Sign out"}
-            </Button>
-          </div>
-        </div>
-      </header>
+          </header>
 
-      <main className="mx-auto w-full max-w-7xl px-4 py-8">
-        <DashboardMetrics stats={stats} />
-
-        <div className="mt-6 grid gap-6 xl:grid-cols-[1.45fr_0.9fr]">
-          <section className="space-y-6">
+          <main className="flex flex-col gap-6 px-4 py-6 sm:px-6">
             {signOutError ? (
               <Alert variant="destructive">
                 <AlertTitle>Sign-out failed</AlertTitle>
@@ -346,44 +361,50 @@ export function DashboardPage() {
               </Alert>
             ) : null}
 
-            <UserListPanel
-              currentUserId={profile?.id}
-              feedback={feedback}
-              filteredUsers={filteredUsers}
-              isLoadingUsers={isLoadingUsers}
-              isSubmitting={isSubmitting}
-              onArchive={handleArchive}
-              onDelete={handleDelete}
-              onEdit={startEditing}
-              onRefresh={loadUsers}
-              onRestore={handleRestore}
-              roleFilter={roleFilter}
-              roleOptions={roleOptions}
-              searchTerm={searchTerm}
-              setRoleFilter={setRoleFilter}
-              setSearchTerm={setSearchTerm}
-              setStatusFilter={setStatusFilter}
-              statusFilter={statusFilter}
-              statusOptions={statusOptions}
-              usersError={usersError}
-            />
-          </section>
+            <DashboardMetrics stats={stats} />
 
-          <aside>
-            <UserEditorCard
-              draft={draft}
-              formMode={formMode}
-              isEditingSelf={isEditingSelf}
-              isSubmitting={isSubmitting}
-              onDraftChange={handleDraftChange}
-              onReset={resetForm}
-              onSubmit={handleSubmit}
-              roleOptions={roleOptions}
-              statusOptions={statusOptions}
-            />
-          </aside>
+            <div className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_22rem]">
+              <section className="min-w-0">
+                <UserListPanel
+                  currentUserId={profile?.id}
+                  feedback={feedback}
+                  filteredUsers={filteredUsers}
+                  isLoadingUsers={isLoadingUsers}
+                  isSubmitting={isSubmitting}
+                  onArchive={handleArchive}
+                  onDelete={handleDelete}
+                  onEdit={startEditing}
+                  onRefresh={loadUsers}
+                  onRestore={handleRestore}
+                  roleFilter={roleFilter}
+                  roleOptions={roleOptions}
+                  searchTerm={searchTerm}
+                  setRoleFilter={setRoleFilter}
+                  setSearchTerm={setSearchTerm}
+                  setStatusFilter={setStatusFilter}
+                  statusFilter={statusFilter}
+                  statusOptions={statusOptions}
+                  usersError={usersError}
+                />
+              </section>
+
+              <aside className="min-w-0">
+                <UserEditorCard
+                  draft={draft}
+                  formMode={formMode}
+                  isEditingSelf={isEditingSelf}
+                  isSubmitting={isSubmitting}
+                  onDraftChange={handleDraftChange}
+                  onReset={resetForm}
+                  onSubmit={handleSubmit}
+                  roleOptions={roleOptions}
+                  statusOptions={statusOptions}
+                />
+              </aside>
+            </div>
+          </main>
         </div>
-      </main>
+      </div>
     </div>
   )
 }

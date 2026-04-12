@@ -46,18 +46,17 @@ export function DashboardMetrics({ stats }) {
         const Icon = item.icon
 
         return (
-          <Card
-            key={item.key}
-            className="border-white/60 bg-white/82 py-0 backdrop-blur"
-          >
-            <CardHeader className="border-b border-border/70 px-5 py-5">
-              <CardTitle className="flex items-center gap-2 text-base">
+          <Card key={item.key} className="py-0 shadow-none">
+            <CardHeader className="gap-2 border-b px-5 py-4">
+              <CardTitle className="flex items-center gap-2 text-sm font-medium">
                 <Icon className={`size-4 ${item.iconClassName}`} />
                 {item.label}
               </CardTitle>
-              <CardDescription>{item.description}</CardDescription>
+              <CardDescription className="text-sm">
+                {item.description}
+              </CardDescription>
             </CardHeader>
-            <CardContent className="px-5 py-5">
+            <CardContent className="px-5 py-4">
               <p className="text-3xl font-semibold tracking-tight">
                 {stats[item.key]}
               </p>

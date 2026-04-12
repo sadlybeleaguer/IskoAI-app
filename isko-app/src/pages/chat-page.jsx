@@ -1,19 +1,27 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import {
+  ArrowUpRight,
+  CircleHelp,
+  FileText,
   LogOut,
   Menu,
   MessageSquarePlus,
   MoreHorizontal,
-  PanelLeftClose,
-  PanelLeftOpen,
+  PenSquare,
   Shield,
-  Sparkles,
   X,
 } from "lucide-react"
 import { Link, useNavigate } from "react-router-dom"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,54 +34,35 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Textarea } from "@/components/ui/textarea"
 import { useAuth } from "@/contexts/auth-context"
 import { supabase } from "@/lib/supabase"
+import { cn } from "@/lib/utils"
 
-const starterThreads = [
-  {
-    id: "thread-brief",
-    title: "Client kickoff brief",
-    updatedAt: "2026-04-12T08:20:00.000Z",
-    messages: [
-      {
-        id: "message-brief-1",
-        role: "user",
-        content: "Outline a kickoff agenda for a small AI product sprint.",
-        createdAt: "2026-04-12T08:18:00.000Z",
-      },
-      {
-        id: "message-brief-2",
-        role: "assistant",
-        content:
-          "Start with goals, constraints, data availability, and who owns the first shipping milestone. Close with a written decision log.",
-        createdAt: "2026-04-12T08:20:00.000Z",
-      },
-    ],
-  },
-  {
-    id: "thread-rollout",
-    title: "Release note draft",
-    updatedAt: "2026-04-11T16:45:00.000Z",
-    messages: [
-      {
-        id: "message-rollout-1",
-        role: "user",
-        content: "Write a short release note for a chat workspace refresh.",
-        createdAt: "2026-04-11T16:42:00.000Z",
-      },
-      {
-        id: "message-rollout-2",
-        role: "assistant",
-        content:
-          "The workspace now opens into a focused chat view with faster navigation, clearer thread history, and a simpler compose flow.",
-        createdAt: "2026-04-11T16:45:00.000Z",
-      },
-    ],
-  },
-]
+const starterThreads = []
 
 const starterPrompts = [
   "Draft an onboarding checklist for a new product hire.",
   "Summarize a meeting into decisions, risks, and next steps.",
   "Turn a rough idea into a one-page project brief.",
+]
+
+const landingActions = [
+  {
+    title: "Summarize notes",
+    description: "Placeholder tile for your frontend team to wire into summaries.",
+    icon: FileText,
+    prompt: "Summarize these notes into key points and next steps.",
+  },
+  {
+    title: "Draft content",
+    description: "Placeholder tile for writing flows, briefs, and rough drafts.",
+    icon: PenSquare,
+    prompt: "Create a first draft from this rough idea.",
+  },
+  {
+    title: "Answer questions",
+    description: "Placeholder tile for research, Q&A, and lightweight support flows.",
+    icon: CircleHelp,
+    prompt: "Answer this clearly and keep it concise.",
+  },
 ]
 
 const cannedReplies = [
@@ -143,7 +132,6 @@ export function ChatPage() {
   const [activeThreadId, setActiveThreadId] = useState(null)
   const [draft, setDraft] = useState("")
   const [isNavOpen, setIsNavOpen] = useState(false)
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [isResponding, setIsResponding] = useState(false)
   const [responseThreadId, setResponseThreadId] = useState("")
   const [isSigningOut, setIsSigningOut] = useState(false)
@@ -350,12 +338,73 @@ export function ChatPage() {
     </DropdownMenu>
   )
 
+  const renderLandingComposer = () => (
+    <form className="flex flex-col gap-4" onSubmit={handleSend}>
+      <div className="rounded-xl border bg-card">
+        <Textarea
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          onKeyDown={handleComposerKeyDown}
+          placeholder="Ask IskoAI anything..."
+          className="min-h-36 resize-none border-0 px-5 py-5 shadow-none focus-visible:ring-0"
+        />
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t px-5 py-3">
+          <div className="flex flex-wrap items-center gap-2">
+            {starterPrompts.map((prompt) => (
+              <button
+                key={prompt}
+                type="button"
+                className="rounded-md border px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                onClick={() => handlePromptClick(prompt)}
+              >
+                {getThreadTitle(prompt)}
+              </button>
+            ))}
+          </div>
+
+          <Button type="submit" disabled={!draft.trim() || isResponding}>
+            <ArrowUpRight data-icon="inline-start" />
+            {isResponding ? "Thinking..." : "Send"}
+          </Button>
+        </div>
+      </div>
+    </form>
+  )
+
+  const renderThreadComposer = () => (
+    <div className="border-t bg-background">
+      <form
+        className="mx-auto flex w-full max-w-4xl flex-col gap-3 px-4 py-4 sm:px-6 lg:px-8"
+        onSubmit={handleSend}
+      >
+        <div className="rounded-xl border bg-card">
+          <Textarea
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={handleComposerKeyDown}
+            placeholder="Message IskoAI"
+            className="min-h-28 resize-none border-0 px-5 py-5 shadow-none focus-visible:ring-0"
+          />
+          <div className="flex items-center justify-between gap-3 border-t px-5 py-3">
+            <p className="text-sm text-muted-foreground">
+              Press Enter to send. Use Shift+Enter for a new line.
+            </p>
+            <Button type="submit" disabled={!draft.trim() || isResponding}>
+              <ArrowUpRight data-icon="inline-start" />
+              {isResponding ? "Thinking..." : "Send"}
+            </Button>
+          </div>
+        </div>
+      </form>
+    </div>
+  )
+
   const renderSidebar = (mobile = false) => (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b px-4 py-4">
-        <div className="flex min-w-0 flex-col gap-0.5">
-          <span className="truncate text-base font-medium">IskoAI</span>
-          <span className="truncate text-sm text-muted-foreground">Chat workspace</span>
+        <div className="min-w-0">
+          <p className="truncate text-lg font-medium">IskoAI</p>
+          <p className="truncate text-sm text-muted-foreground">Workspace</p>
         </div>
         {mobile ? (
           <Button
@@ -373,7 +422,6 @@ export function ChatPage() {
       <div className="border-b px-4 py-4">
         <Button
           type="button"
-          variant="outline"
           className="w-full justify-start"
           onClick={handleNewChat}
         >
@@ -383,25 +431,38 @@ export function ChatPage() {
       </div>
 
       <ScrollArea className="min-h-0 flex-1">
-        <div className="flex flex-col gap-2 px-3 py-3">
-          {sortedThreads.map((thread) => (
-            <button
-              key={thread.id}
-              type="button"
-              className={[
-                "flex w-full flex-col items-start gap-1 rounded-md border px-3 py-3 text-left transition-colors",
-                activeThreadId === thread.id
-                  ? "border-border bg-muted text-foreground"
-                  : "border-transparent bg-transparent text-foreground hover:bg-muted",
-              ].join(" ")}
-              onClick={() => handleSelectThread(thread.id)}
-            >
-              <span className="truncate text-sm font-medium">{thread.title}</span>
-              <span className="text-xs text-muted-foreground">
-                {formatRelativeTime(thread.updatedAt)}
-              </span>
-            </button>
-          ))}
+        <div className="flex flex-col gap-4 px-4 py-4">
+          <div className="flex flex-col gap-2">
+            <p className="text-sm font-medium">History</p>
+            <div className="rounded-lg border bg-background/60 p-3 text-sm text-muted-foreground">
+              {sortedThreads.length
+                ? "Recent chats"
+                : "Chats will appear here once real conversations are created."}
+            </div>
+          </div>
+
+          {sortedThreads.length ? (
+            <div className="flex flex-col gap-2">
+              {sortedThreads.map((thread) => (
+                <button
+                  key={thread.id}
+                  type="button"
+                  className={cn(
+                    "flex w-full flex-col items-start gap-1 rounded-lg border px-3 py-3 text-left transition-colors",
+                    activeThreadId === thread.id
+                      ? "bg-muted text-foreground"
+                      : "bg-background text-foreground hover:bg-muted",
+                  )}
+                  onClick={() => handleSelectThread(thread.id)}
+                >
+                  <span className="truncate text-sm font-medium">{thread.title}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {formatRelativeTime(thread.updatedAt)}
+                  </span>
+                </button>
+              ))}
+            </div>
+          ) : null}
         </div>
       </ScrollArea>
 
@@ -412,40 +473,10 @@ export function ChatPage() {
   )
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <div
-        className={[
-          "grid min-h-screen",
-          isSidebarCollapsed
-            ? "lg:grid-cols-[72px_minmax(0,1fr)]"
-            : "lg:grid-cols-[256px_minmax(0,1fr)]",
-        ].join(" ")}
-      >
+    <div className="min-h-screen bg-muted/30 text-foreground">
+      <div className="grid min-h-screen lg:grid-cols-[250px_minmax(0,1fr)]">
         <aside className="hidden border-r bg-sidebar lg:block">
-          {isSidebarCollapsed ? (
-            <div className="flex h-full flex-col items-center gap-3 border-r px-3 py-4">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => setIsSidebarCollapsed(false)}
-                aria-label="Expand sidebar"
-              >
-                <PanelLeftOpen data-icon="inline-start" />
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon-sm"
-                onClick={handleNewChat}
-                aria-label="Start a new chat"
-              >
-                <MessageSquarePlus data-icon="inline-start" />
-              </Button>
-            </div>
-          ) : (
-            renderSidebar()
-          )}
+          {renderSidebar()}
         </aside>
 
         {isNavOpen ? (
@@ -454,7 +485,7 @@ export function ChatPage() {
             onClick={closeMobileNav}
           >
             <aside
-              className="h-full w-[256px] border-r bg-sidebar shadow-sm"
+              className="h-full w-[250px] border-r bg-sidebar"
               onClick={(event) => event.stopPropagation()}
             >
               {renderSidebar(true)}
@@ -462,9 +493,9 @@ export function ChatPage() {
           </div>
         ) : null}
 
-        <main className="flex min-h-screen min-w-0 flex-col">
+        <main className="flex min-h-screen min-w-0 flex-col bg-background">
           <header className="border-b bg-background">
-            <div className="flex items-center gap-2 px-4 py-3 sm:px-6">
+            <div className="flex items-center gap-3 px-4 py-3 sm:px-6">
               <Button
                 type="button"
                 variant="ghost"
@@ -475,28 +506,9 @@ export function ChatPage() {
               >
                 <Menu data-icon="inline-start" />
               </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                className="hidden lg:inline-flex"
-                onClick={() => setIsSidebarCollapsed((current) => !current)}
-                aria-label={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-              >
-                {isSidebarCollapsed ? (
-                  <PanelLeftOpen data-icon="inline-start" />
-                ) : (
-                  <PanelLeftClose data-icon="inline-start" />
-                )}
-              </Button>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">
                   {activeThread?.title || "IskoAI"}
-                </p>
-                <p className="truncate text-sm text-muted-foreground">
-                  {activeThread
-                    ? `${activeThread.messages.length} messages`
-                    : "Start a new conversation"}
                 </p>
               </div>
               <Button
@@ -523,24 +535,25 @@ export function ChatPage() {
             </div>
           ) : null}
 
-          <ScrollArea className="min-h-0 flex-1">
-            {activeThread ? (
-              <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-6 sm:px-6">
+          <div className="flex min-h-0 flex-1 flex-col">
+            <ScrollArea className="min-h-0 flex-1">
+              {activeThread ? (
+                <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-8 sm:px-6 lg:px-8">
                 {activeThread.messages.map((message) => (
                   <article
                     key={message.id}
-                    className={[
+                    className={cn(
                       "flex",
                       message.role === "user" ? "justify-end" : "justify-start",
-                    ].join(" ")}
+                    )}
                   >
                     <div
-                      className={[
-                        "max-w-[42rem] rounded-lg px-4 py-3 text-sm leading-6",
+                      className={cn(
+                        "max-w-[44rem] rounded-xl px-4 py-3 text-sm leading-6",
                         message.role === "user"
                           ? "bg-primary text-primary-foreground"
                           : "border bg-card text-card-foreground",
-                      ].join(" ")}
+                      )}
                     >
                       {message.content}
                     </div>
@@ -548,62 +561,67 @@ export function ChatPage() {
                 ))}
                 {isPendingThread ? (
                   <article className="flex justify-start">
-                    <div className="rounded-lg border bg-card px-4 py-3 text-sm text-muted-foreground">
+                    <div className="rounded-xl border bg-card px-4 py-3 text-sm text-muted-foreground">
                       IskoAI is drafting a reply...
                     </div>
                   </article>
                 ) : null}
-              </div>
-            ) : (
-              <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col justify-center gap-8 px-4 py-8 sm:px-6">
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center gap-2 text-base font-medium">
-                    <Sparkles className="size-4 text-muted-foreground" />
-                    IskoAI
+                </div>
+              ) : (
+                <div className="mx-auto flex min-h-full w-full max-w-5xl flex-col justify-center px-4 py-10 sm:px-6 lg:px-8">
+                  <div className="mx-auto flex w-full max-w-3xl flex-col gap-8">
+                    <div className="flex flex-col items-center gap-4 text-center">
+                      <div className="rounded-lg border bg-card px-4 py-2 text-sm font-medium">
+                        IskoAI
+                      </div>
+                      <h1 className="text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
+                        Start a smart conversation
+                      </h1>
+                    </div>
+
+                    {renderLandingComposer()}
+
+                    <div className="grid gap-3 md:grid-cols-3">
+                      {landingActions.map((action) => {
+                        const Icon = action.icon
+
+                        return (
+                          <button
+                            key={action.title}
+                            type="button"
+                            className="text-left"
+                            onClick={() => handlePromptClick(action.prompt)}
+                          >
+                            <Card className="h-full shadow-none transition-colors hover:bg-muted/60">
+                              <CardHeader className="flex flex-col gap-3">
+                                <div className="flex size-9 items-center justify-center rounded-md border bg-background">
+                                  <Icon className="size-4" />
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                  <CardTitle className="text-base">
+                                    {action.title}
+                                  </CardTitle>
+                                  <CardDescription className="text-sm leading-6">
+                                    {action.description}
+                                  </CardDescription>
+                                </div>
+                              </CardHeader>
+                              <CardContent className="pt-0">
+                                <p className="text-sm text-muted-foreground">
+                                  IskoAI placeholder
+                                </p>
+                              </CardContent>
+                            </Card>
+                          </button>
+                        )
+                      })}
+                    </div>
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    Start with a prompt or pick one of the drafts below.
-                  </p>
                 </div>
+              )}
+            </ScrollArea>
 
-                <div className="grid gap-3 sm:grid-cols-3">
-                  {starterPrompts.map((prompt) => (
-                    <button
-                      key={prompt}
-                      type="button"
-                      className="rounded-lg border px-4 py-4 text-left text-sm leading-6 transition-colors hover:bg-muted"
-                      onClick={() => handlePromptClick(prompt)}
-                    >
-                      {prompt}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </ScrollArea>
-
-          <div className="border-t bg-background">
-            <form
-              className="mx-auto flex w-full max-w-3xl flex-col gap-3 px-4 py-4 sm:px-6"
-              onSubmit={handleSend}
-            >
-              <Textarea
-                value={draft}
-                onChange={(event) => setDraft(event.target.value)}
-                onKeyDown={handleComposerKeyDown}
-                placeholder="Message IskoAI"
-                className="min-h-28 resize-none"
-              />
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-sm text-muted-foreground">
-                  Press Enter to send. Use Shift+Enter for a new line.
-                </p>
-                <Button type="submit" disabled={!draft.trim() || isResponding}>
-                  <Sparkles data-icon="inline-start" />
-                  {isResponding ? "Thinking..." : "Send"}
-                </Button>
-              </div>
-            </form>
+            {activeThread ? renderThreadComposer() : null}
           </div>
         </main>
       </div>
