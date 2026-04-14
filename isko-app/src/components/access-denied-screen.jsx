@@ -11,7 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { supabase } from "@/lib/supabase"
+import { supabase } from "@/services/supabase"
 
 function getErrorMessage(error) {
   if (error instanceof Error) {

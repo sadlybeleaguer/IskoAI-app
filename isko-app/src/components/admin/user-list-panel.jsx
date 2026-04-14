@@ -92,12 +92,12 @@ export function UserListPanel({
   usersError,
 }) {
   return (
-    <Card className="py-0 shadow-none">
-      <CardHeader className="gap-4 border-b px-6 py-6">
+    <Card className="py-0 shadow-[0_1px_2px_rgba(15,23,42,0.08)]">
+      <CardHeader className="gap-4 border-b px-5 py-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <CardTitle className="text-xl tracking-tight">Managed users</CardTitle>
-            <CardDescription className="mt-2 max-w-2xl leading-6">
+            <CardTitle className="text-base font-medium">Managed users</CardTitle>
+            <CardDescription className="mt-1 max-w-2xl leading-6">
               Use the search and filters to review active accounts, archived
               accounts, and elevated access.
             </CardDescription>
@@ -156,7 +156,7 @@ export function UserListPanel({
         </div>
       </CardHeader>
 
-      <CardContent className="flex flex-col gap-4 px-6 py-6">
+      <CardContent className="flex flex-col gap-4 px-5 py-5">
         {feedback.message ? (
           <Alert variant={feedback.type === "error" ? "destructive" : "default"}>
             <AlertTitle>
@@ -191,14 +191,11 @@ export function UserListPanel({
             const isArchived = user.status === "archived"
 
             return (
-              <div
-                key={user.id}
-                className="rounded-lg border bg-background p-5"
-              >
+              <div key={user.id} className="rounded-lg border bg-background p-4">
                 <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                   <div className="flex flex-col gap-3">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h2 className="text-lg font-semibold tracking-tight">
+                      <h2 className="text-base font-medium">
                         {user.full_name || "No name set"}
                       </h2>
                       <RoleBadge value={user.role} />

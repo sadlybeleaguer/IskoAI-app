@@ -43,9 +43,9 @@ export function UserEditorCard({
   statusOptions,
 }) {
   return (
-    <Card className="py-0 shadow-none">
-      <CardHeader className="gap-2 border-b px-6 py-6">
-        <CardTitle className="text-xl tracking-tight">
+    <Card className="py-0 shadow-[0_1px_2px_rgba(15,23,42,0.08)]">
+      <CardHeader className="gap-2 border-b px-5 py-5">
+        <CardTitle className="text-base font-medium">
           {formMode === "create" ? "Create user" : "Edit user"}
         </CardTitle>
         <CardDescription className="leading-6">
@@ -55,7 +55,7 @@ export function UserEditorCard({
         </CardDescription>
       </CardHeader>
 
-      <CardContent className="flex flex-col gap-5 px-6 py-6">
+      <CardContent className="flex flex-col gap-5 px-5 py-5">
         <form className="flex flex-col gap-4" onSubmit={onSubmit}>
           <div className="flex flex-col gap-2">
             <Label htmlFor="full-name">Full name</Label>
@@ -87,13 +87,17 @@ export function UserEditorCard({
               <Input
                 id="user-password"
                 type="password"
-                placeholder="At least 8 characters"
+                placeholder="Use a strong temporary password"
                 value={draft.password}
                 onChange={onDraftChange("password")}
                 disabled={isSubmitting}
                 minLength={8}
                 required
               />
+              <p className="text-xs leading-5 text-muted-foreground">
+                Use at least 8 characters with uppercase, lowercase, a number,
+                and a symbol.
+              </p>
             </div>
           ) : null}
 
@@ -159,19 +163,7 @@ export function UserEditorCard({
             </Button>
           </div>
         </form>
-
         <Separator />
-
-        <div className="flex flex-col gap-3 text-sm text-muted-foreground">
-          <p>
-            Browser reads are limited by RLS, and every mutation runs through
-            the protected <code>manage-users</code> Edge Function.
-          </p>
-          <p>
-            Archived users are banned from signing in until restored. Permanent
-            delete removes both the auth account and the linked profile.
-          </p>
-        </div>
       </CardContent>
     </Card>
   )

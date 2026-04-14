@@ -108,12 +108,41 @@ function requireEmail(value: unknown) {
     throw new HttpError(400, "Email address is invalid.")
   }
 
+  if (email.length > 320) {
+    throw new HttpError(400, "Email must be 320 characters or fewer.")
+  }
+
   return email
+}
+
+function validateFullName(value: unknown) {
+  const fullName = trimName(value)
+
+  if (fullName.length > 120) {
+    throw new HttpError(400, "Full name must be 120 characters or fewer.")
+  }
+
+  return fullName
 }
 
 function requirePassword(value: unknown) {
   if (typeof value !== "string" || value.length < 8) {
-    throw new HttpError(400, "Password must be at least 8 characters long.")
+    throw new HttpError(
+      400,
+      "Password must be at least 8 characters and include uppercase, lowercase, number, and symbol.",
+    )
+  }
+
+  if (
+    !/[A-Z]/.test(value) ||
+    !/[a-z]/.test(value) ||
+    !/\d/.test(value) ||
+    !/[^A-Za-z0-9]/.test(value)
+  ) {
+    throw new HttpError(
+      400,
+      "Password must be at least 8 characters and include uppercase, lowercase, number, and symbol.",
+    )
   }
 
   return value
@@ -287,7 +316,7 @@ async function handleCreate(
   payload: CreatePayload,
 ) {
   const email = requireEmail(payload.email)
-  const fullName = trimName(payload.fullName)
+  const fullName = validateFullName(payload.fullName)
   const password = requirePassword(payload.password)
   const role = validateRole(payload.role ?? DEFAULT_ROLE)
   const status = validateStatus(payload.status ?? ACTIVE_STATUS)
@@ -329,7 +358,7 @@ async function handleUpdate(
 ) {
   const userId = requireUuid(payload.userId, "userId")
   const email = requireEmail(payload.email)
-  const fullName = trimName(payload.fullName)
+  const fullName = validateFullName(payload.fullName)
   const role = validateRole(payload.role)
   const status = validateStatus(payload.status)
 

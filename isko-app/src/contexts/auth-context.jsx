@@ -7,7 +7,7 @@ import {
   useState,
 } from "react"
 
-import { hasSupabaseEnv, supabase } from "@/lib/supabase"
+import { hasSupabaseEnv, supabase } from "@/services/supabase"
 
 const AuthContext = createContext(null)
 const profileSelect =

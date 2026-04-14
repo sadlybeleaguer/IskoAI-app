@@ -2,8 +2,10 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom"
 
 import { AuthProvider } from "@/contexts/auth-context"
 import { AuthPage } from "@/pages/auth-page"
-import { ChatPage } from "@/pages/chat-page"
+import { CalendarPage } from "@/pages/calendar-page"
+import { ChatWorkspaceShellPage } from "@/pages/chat-workspace-shell-page"
 import { DashboardPage } from "@/pages/dashboard-page"
+import { NotesPage } from "@/pages/notes-page"
 import { AuthenticatedRoute } from "@/routes/authenticated-route"
 import { GuestOnlyRoute } from "@/routes/guest-only-route"
 import { HomeRedirect } from "@/routes/home-redirect"
@@ -20,7 +22,9 @@ function App() {
             <Route path="/sign-up" element={<AuthPage mode="sign-up" />} />
           </Route>
           <Route element={<AuthenticatedRoute />}>
-            <Route path="/chat" element={<ChatPage />} />
+            <Route path="/chat" element={<ChatWorkspaceShellPage />} />
+            <Route path="/notes" element={<NotesPage />} />
+            <Route path="/calendar" element={<CalendarPage />} />
           </Route>
           <Route element={<ProtectedRoute />}>
             <Route path="/dashboard" element={<DashboardPage />} />
