@@ -1,10 +1,8 @@
 import { useEffect } from "react"
-import { UserPlus } from "lucide-react"
 
 import { DashboardMetrics } from "@/components/admin/dashboard-metrics"
 import { UserEditorCard } from "@/components/admin/user-editor-card"
 import { UserListPanel } from "@/components/admin/user-list-panel"
-import { Button } from "@/components/ui/button"
 import { AdminShell } from "@/components/layout/admin-shell"
 import { useAuth } from "@/contexts/auth-context"
 import {
@@ -23,7 +21,6 @@ export function DashboardPage() {
     handleArchive,
     handleDelete,
     handleDraftChange,
-    handleNewUser,
     handleRestore,
     handleSubmit,
     isEditingSelf,
@@ -52,12 +49,6 @@ export function DashboardPage() {
 
   return (
     <AdminShell
-      headerActions={
-        <Button type="button" variant="outline" onClick={handleNewUser}>
-          <UserPlus data-icon="inline-start" />
-          New user
-        </Button>
-      }
       headerContent={
         <div className="min-w-0 flex-1">
           <h1 className="text-sm font-medium">Users</h1>

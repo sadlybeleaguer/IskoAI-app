@@ -49,10 +49,11 @@ export function AdminShell({
       className="min-h-screen bg-background text-foreground"
       style={{
         "--admin-sidebar-width": isSidebarCollapsed ? "4.5rem" : "15.5rem",
+        "--admin-sidebar-drawer-width": "clamp(15rem, 82vw, 16rem)",
       }}
     >
-      <div className="grid min-h-screen lg:grid-cols-[var(--admin-sidebar-width)_minmax(0,1fr)]">
-        <aside className="hidden border-r lg:block">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[var(--admin-sidebar-width)] border-r bg-sidebar lg:block">
+        <div className="h-svh">
           <AdminSidebar
             isCollapsed={isSidebarCollapsed}
             isSigningOut={isSigningOut}
@@ -60,17 +61,20 @@ export function AdminShell({
             onSignOut={handleSignOut}
             userEmail={userEmail}
           />
-        </aside>
+        </div>
+      </aside>
 
-        {isNavOpen ? (
+      {isNavOpen ? (
+        <>
           <div
-            className="fixed inset-0 z-50 bg-black/40 lg:hidden"
+            className="fixed inset-0 z-40 bg-black/40 lg:hidden"
             onClick={() => setIsNavOpen(false)}
+          />
+          <aside
+            className="fixed inset-y-0 left-0 z-50 w-[var(--admin-sidebar-drawer-width)] border-r bg-sidebar lg:hidden"
+            onClick={(event) => event.stopPropagation()}
           >
-            <aside
-              className="h-full w-[15.5rem] border-r"
-              onClick={(event) => event.stopPropagation()}
-            >
+            <div className="h-svh">
               <AdminSidebar
                 isSigningOut={isSigningOut}
                 isMobile
@@ -79,12 +83,14 @@ export function AdminShell({
                 onSignOut={handleSignOut}
                 userEmail={userEmail}
               />
-            </aside>
-          </div>
-        ) : null}
+            </div>
+          </aside>
+        </>
+      ) : null}
 
+      <div className="min-h-screen min-w-0 lg:pl-[var(--admin-sidebar-width)]">
         <div className="min-w-0">
-          <header className="border-b">
+          <header className="sticky top-0 z-20 border-b bg-background">
             <div className="flex items-center gap-3 px-4 py-3 sm:px-6">
               <Button
                 type="button"
@@ -103,7 +109,7 @@ export function AdminShell({
             </div>
           </header>
 
-          <main className="flex min-h-0 flex-1 flex-col">
+          <main className="flex min-h-[calc(100svh-3.5rem)] min-w-0 flex-col">
             <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-5 px-4 py-5 sm:px-6 lg:px-8">
               {signOutError ? (
                 <Alert variant="destructive">

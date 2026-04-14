@@ -7,11 +7,14 @@ import {
   listChatThreads,
 } from "@/services/chat-service"
 import {
+  defaultChatModels,
+  listAvailableChatModels,
+} from "@/services/models-service"
+import {
   buildReply,
   delay,
   getThreadTitle,
   groupThreads,
-  modelOptions,
   sortThreads,
 } from "@/utils/chat"
 import { getErrorMessage } from "@/utils/errors"
@@ -26,7 +29,10 @@ export function useChatWorkspace(userId) {
   const [isSending, setIsSending] = useState(false)
   const [pageError, setPageError] = useState("")
   const [pendingReplyThreadId, setPendingReplyThreadId] = useState("")
-  const [selectedModel, setSelectedModel] = useState(modelOptions[0])
+  const [availableModels, setAvailableModels] = useState(defaultChatModels)
+  const [isLoadingModels, setIsLoadingModels] = useState(true)
+  const [modelsError, setModelsError] = useState("")
+  const [selectedModelKey, setSelectedModelKey] = useState(defaultChatModels[0]?.key ?? "")
   const [selectedTool, setSelectedTool] = useState("")
   const [composerNotice, setComposerNotice] = useState("")
   const endOfMessagesRef = useRef(null)
@@ -39,8 +45,15 @@ export function useChatWorkspace(userId) {
     () => groupThreads(sortThreads(threads)),
     [threads],
   )
+  const selectedModel = useMemo(
+    () =>
+      availableModels.find((model) => model.key === selectedModelKey) ??
+      null,
+    [availableModels, selectedModelKey],
+  )
   const isPendingThread =
     pendingReplyThreadId && pendingReplyThreadId === activeThreadId
+  const hasAvailableModels = availableModels.length > 0
 
   useEffect(() => {
     endOfMessagesRef.current?.scrollIntoView({
@@ -48,6 +61,64 @@ export function useChatWorkspace(userId) {
       block: "end",
     })
   }, [messages, isPendingThread])
+
+  useEffect(() => {
+    if (!userId) {
+      setAvailableModels(defaultChatModels)
+      setModelsError("")
+      setSelectedModelKey(defaultChatModels[0]?.key ?? "")
+      setIsLoadingModels(false)
+      return
+    }
+
+    let isMounted = true
+
+    const loadModels = async () => {
+      setIsLoadingModels(true)
+
+      try {
+        const nextModels = await listAvailableChatModels()
+
+        if (!isMounted) {
+          return
+        }
+
+        setAvailableModels(nextModels)
+        setModelsError("")
+      } catch (error) {
+        if (!isMounted) {
+          return
+        }
+
+        setAvailableModels([])
+        setModelsError(getErrorMessage(error, "Chat models are unavailable."))
+      } finally {
+        if (isMounted) {
+          setIsLoadingModels(false)
+        }
+      }
+    }
+
+    void loadModels()
+
+    return () => {
+      isMounted = false
+    }
+  }, [userId])
+
+  useEffect(() => {
+    if (!availableModels.length) {
+      setSelectedModelKey("")
+      return
+    }
+
+    setSelectedModelKey((currentModelKey) =>
+      currentModelKey &&
+      availableModels.some((model) => model.key === currentModelKey)
+        ? currentModelKey
+        : availableModels[0].key,
+    )
+  }, [availableModels])
 
   const loadThreads = useCallback(async () => {
     if (!userId) {
@@ -166,7 +237,7 @@ export function useChatWorkspace(userId) {
 
     const content = draft.trim()
 
-    if (!content || isSending || !userId) {
+    if (!content || isSending || !userId || !selectedModelKey) {
       return
     }
 
@@ -240,14 +311,19 @@ export function useChatWorkspace(userId) {
     isPendingThread,
     isSending,
     messages,
+    modelsError,
     pageError,
-    selectedModel,
+    hasAvailableModels,
+    isLoadingModels,
+    selectedModelKey,
+    selectedModelLabel: selectedModel?.label ?? "",
     selectedTool,
     selectThread,
     sendMessage,
     setComposerNotice: showComposerNotice,
     setDraft,
-    setSelectedModel,
+    setSelectedModelKey,
     setSelectedTool,
+    availableModels,
   }
 }

@@ -2,6 +2,7 @@ import { supabase, supabaseKey, supabaseUrl } from "@/services/supabase"
 
 const invalidRefreshTokenPattern =
   /invalid refresh token|refresh token not found/i
+let refreshSessionPromise = null
 
 async function clearLocalSupabaseSession() {
   if (!supabase) {
@@ -19,60 +20,86 @@ function isAuthRetryError(message) {
   return invalidRefreshTokenPattern.test(message ?? "")
 }
 
+async function getCurrentSession() {
+  const {
+    data: { session },
+    error,
+  } = await supabase.auth.getSession()
+
+  if (error) {
+    if (isAuthRetryError(error.message)) {
+      await clearLocalSupabaseSession()
+      throw new Error("Your session expired. Please sign in again.")
+    }
+
+    throw new Error(error.message)
+  }
+
+  return session
+}
+
+async function refreshAccessToken(refreshToken) {
+  if (!refreshToken) {
+    throw new Error("You must be signed in to manage users.")
+  }
+
+  if (!refreshSessionPromise) {
+    refreshSessionPromise = supabase.auth
+      .refreshSession({ refresh_token: refreshToken })
+      .finally(() => {
+        refreshSessionPromise = null
+      })
+  }
+
+  const { data, error } = await refreshSessionPromise
+
+  if (error) {
+    if (isAuthRetryError(error.message)) {
+      await clearLocalSupabaseSession()
+      throw new Error("Your session expired. Please sign in again.")
+    }
+
+    throw new Error(error.message)
+  }
+
+  const nextSession = data.session
+
+  if (!nextSession?.access_token) {
+    throw new Error("You must be signed in to manage users.")
+  }
+
+  return nextSession
+}
+
+async function invokeManageUsersRequest(accessToken, payload) {
+  return fetch(`${supabaseUrl}/functions/v1/manage-users`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      apikey: supabaseKey,
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(payload),
+  })
+}
+
 export async function invokeManageUsers(_session, payload) {
   if (!supabaseUrl || !supabaseKey || !supabase) {
     throw new Error("Supabase environment variables are missing.")
   }
 
-  const {
-    data: { session: currentSession },
-    error: sessionError,
-  } = await supabase.auth.getSession()
+  const currentSession = await getCurrentSession()
 
-  if (sessionError) {
-    if (isAuthRetryError(sessionError.message)) {
-      await clearLocalSupabaseSession()
-      throw new Error("Your session expired. Please sign in again.")
-    }
-
-    throw new Error(sessionError.message)
-  }
-
-  if (!currentSession?.refresh_token) {
+  if (!currentSession?.access_token) {
     throw new Error("You must be signed in to manage users.")
   }
 
-  const {
-    data: refreshedAuth,
-    error: refreshError,
-  } = await supabase.auth.refreshSession({
-    refresh_token: currentSession.refresh_token,
-  })
+  let response = await invokeManageUsersRequest(currentSession.access_token, payload)
 
-  if (refreshError) {
-    if (isAuthRetryError(refreshError.message)) {
-      await clearLocalSupabaseSession()
-      throw new Error("Your session expired. Please sign in again.")
-    }
-
-    throw new Error(refreshError.message)
+  if (response.status === 401 && currentSession.refresh_token) {
+    const refreshedSession = await refreshAccessToken(currentSession.refresh_token)
+    response = await invokeManageUsersRequest(refreshedSession.access_token, payload)
   }
-
-  const activeSession = refreshedAuth.session ?? currentSession
-
-  if (!activeSession?.access_token) {
-    throw new Error("You must be signed in to manage users.")
-  }
-
-  const response = await fetch(`${supabaseUrl}/functions/v1/manage-users`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      apikey: supabaseKey,
-      Authorization: `Bearer ${activeSession.access_token}`,
-    },
-    body: JSON.stringify(payload),
-  })
 
   const result = await response.json().catch(() => null)
 

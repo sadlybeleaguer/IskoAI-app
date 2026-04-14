@@ -25,11 +25,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Textarea } from "@/components/ui/textarea"
-import {
-  modelOptions,
-  starterPrompts,
-  suggestedPrompts,
-} from "@/utils/chat"
+import { starterPrompts, suggestedPrompts } from "@/utils/chat"
 import { cn } from "@/utils/cn"
 
 const toolOptions = [
@@ -38,13 +34,29 @@ const toolOptions = [
   { value: "Complex Problems", icon: BrainCircuit },
 ]
 
-export function ChatModelMenu({ selectedModel, setSelectedModel }) {
+export function ChatModelMenu({
+  isLoadingModels = false,
+  models,
+  selectedModelKey,
+  selectedModelLabel,
+  setSelectedModelKey,
+}) {
+  const isDisabled = isLoadingModels || models.length === 0
+  const triggerLabel = isLoadingModels
+    ? "Loading models..."
+    : selectedModelLabel || "No models available"
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button type="button" variant="ghost" className="h-auto justify-start px-0 py-0">
+        <Button
+          type="button"
+          variant="ghost"
+          className="h-auto justify-start px-0 py-0"
+          disabled={isDisabled}
+        >
           <div className="flex min-w-0 items-center gap-1 text-left">
-            <span className="truncate text-sm font-medium">{selectedModel}</span>
+            <span className="truncate text-sm font-medium">{triggerLabel}</span>
             <ChevronDown data-icon="inline-end" />
           </div>
         </Button>
@@ -52,13 +64,22 @@ export function ChatModelMenu({ selectedModel, setSelectedModel }) {
       <DropdownMenuContent align="start" className="w-48">
         <DropdownMenuLabel>Model</DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuRadioGroup value={selectedModel} onValueChange={setSelectedModel}>
-          {modelOptions.map((model) => (
-            <DropdownMenuRadioItem key={model} value={model}>
-              {model}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
+        {models.length ? (
+          <DropdownMenuRadioGroup
+            value={selectedModelKey}
+            onValueChange={setSelectedModelKey}
+          >
+            {models.map((model) => (
+              <DropdownMenuRadioItem key={model.key} value={model.key}>
+                {model.label}
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+        ) : (
+          <DropdownMenuItem disabled>
+            {isLoadingModels ? "Loading models..." : "No models available"}
+          </DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   )
@@ -68,12 +89,15 @@ export function ChatComposer({
   composerNotice,
   draft,
   isEmptyState = false,
+  isLoadingModels = false,
   isSending,
+  hasAvailableModels = true,
+  modelStatusMessage = "",
   onComposerNotice,
   onKeyDown,
   onPromptClick,
   onSubmit,
-  selectedModel,
+  selectedModelLabel,
   selectedTool,
   setDraft,
   setSelectedTool,
@@ -148,7 +172,9 @@ export function ChatComposer({
               </DropdownMenu>
             </div>
             <div className="hidden min-w-0 items-center gap-3 text-xs text-muted-foreground sm:flex">
-              <span className="truncate">Model {selectedModel}</span>
+              <span className="truncate">
+                Model {selectedModelLabel || (isLoadingModels ? "Loading..." : "Unavailable")}
+              </span>
               {selectedTool ? <span className="truncate">Tool {selectedTool}</span> : null}
             </div>
           </div>
@@ -161,7 +187,7 @@ export function ChatComposer({
               type="submit"
               size="icon"
               className="rounded-full"
-              disabled={!draft.trim() || isSending}
+              disabled={!draft.trim() || isSending || !hasAvailableModels}
               aria-label={isSending ? "Sending message" : "Send message"}
             >
               <ArrowUpRight data-icon="inline-start" />
@@ -170,12 +196,19 @@ export function ChatComposer({
         </div>
       </div>
 
-      {selectedTool || composerNotice ? (
+      {selectedTool || composerNotice || modelStatusMessage ? (
         <div className="flex flex-col gap-2">
           {selectedTool ? (
             <div className="px-1 text-xs text-muted-foreground sm:hidden">
-              Model {selectedModel} / Tool {selectedTool}
+              Model {selectedModelLabel || "Unavailable"} / Tool {selectedTool}
             </div>
+          ) : null}
+          {modelStatusMessage ? (
+            <Alert>
+              <BrainCircuit className="size-4" />
+              <AlertTitle>Model availability</AlertTitle>
+              <AlertDescription>{modelStatusMessage}</AlertDescription>
+            </Alert>
           ) : null}
           {composerNotice ? (
             <Alert>

@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom"
 import { AuthProvider } from "@/contexts/auth-context"
 import { AuthPage } from "@/pages/auth-page"
 import { CalendarPage } from "@/pages/calendar-page"
+import { ChatModelsPage } from "@/pages/chat-models-page"
 import { ChatWorkspaceShellPage } from "@/pages/chat-workspace-shell-page"
 import { DashboardPage } from "@/pages/dashboard-page"
 import { NotesPage } from "@/pages/notes-page"
@@ -28,6 +29,7 @@ function App() {
           </Route>
           <Route element={<ProtectedRoute />}>
             <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/dashboard/models" element={<ChatModelsPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

@@ -1,4 +1,5 @@
 import {
+  Bot,
   LogOut,
   MessageSquare,
   MoreHorizontal,
@@ -20,9 +21,13 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/utils/cn"
 
-const navItems = [
-  { href: "/dashboard", icon: Users, label: "Users" },
-  { href: "/chat", icon: MessageSquare, label: "Chat" },
+const adminNavItems = [
+  { href: "/dashboard", icon: Users, label: "Users", end: true },
+  { href: "/dashboard/models", icon: Bot, label: "Chat models", end: true },
+]
+
+const workspaceNavItems = [
+  { href: "/chat", icon: MessageSquare, label: "Chat", end: false },
 ]
 
 function getInitials(value) {
@@ -45,32 +50,36 @@ export function AdminSidebar({
 }) {
   const initials = getInitials(userEmail || "Admin")
 
-  const renderNavItem = (item, collapsed = false) => {
-    const Icon = item.icon
+  const renderNavSection = (items, collapsed = false) => (
+    <div className="flex flex-col gap-1">
+      {items.map((item) => {
+        const Icon = item.icon
 
-    return (
-      <NavLink key={item.href} to={item.href} end={item.href === "/dashboard"}>
-        {({ isActive }) => (
-          <Button
-            type="button"
-            variant="ghost"
-            size={collapsed ? "icon" : "default"}
-            className={cn(
-              collapsed
-                ? "size-10 justify-center"
-                : "h-9 w-full justify-start px-3",
-              isActive ? "bg-background text-foreground" : "text-muted-foreground",
+        return (
+          <NavLink key={item.href} to={item.href} end={item.end}>
+            {({ isActive }) => (
+              <Button
+                type="button"
+                variant="ghost"
+                size={collapsed ? "icon" : "default"}
+                className={cn(
+                  collapsed
+                    ? "size-10 justify-center"
+                    : "h-9 w-full justify-start px-3",
+                  isActive ? "bg-background text-foreground" : "text-muted-foreground",
+                )}
+                aria-current={isActive ? "page" : undefined}
+                onClick={onClose}
+              >
+                <Icon data-icon="inline-start" />
+                {collapsed ? null : item.label}
+              </Button>
             )}
-            aria-current={isActive ? "page" : undefined}
-            onClick={onClose}
-          >
-            <Icon data-icon="inline-start" />
-            {collapsed ? null : item.label}
-          </Button>
-        )}
-      </NavLink>
-    )
-  }
+          </NavLink>
+        )
+      })}
+    </div>
+  )
 
   const renderUserMenu = ({
     compact = false,
@@ -96,6 +105,12 @@ export function AdminSidebar({
             <Link to="/dashboard" onClick={onClose}>
               <Users data-icon="inline-start" />
               Users
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link to="/dashboard/models" onClick={onClose}>
+              <Bot data-icon="inline-start" />
+              Chat models
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
@@ -133,7 +148,9 @@ export function AdminSidebar({
         </Button>
 
         <div className="mt-4 flex flex-col gap-2">
-          {navItems.map((item) => renderNavItem(item, true))}
+          {renderNavSection(adminNavItems, true)}
+          <div className="h-px bg-border/70" />
+          {renderNavSection(workspaceNavItems, true)}
         </div>
 
         <div className="mt-auto">
@@ -179,7 +196,9 @@ export function AdminSidebar({
 
       <ScrollArea className="min-h-0 flex-1">
         <nav className="flex flex-col gap-1 px-2 py-3">
-          {navItems.map((item) => renderNavItem(item))}
+          {renderNavSection(adminNavItems)}
+          <div className="my-3 h-px bg-border/70" />
+          {renderNavSection(workspaceNavItems)}
         </nav>
       </ScrollArea>
 

@@ -14,6 +14,7 @@ export function ChatWorkspaceShellPage() {
   const {
     activeThread,
     activeThreadId,
+    availableModels,
     composerNotice,
     createNewChat,
     draft,
@@ -25,23 +26,43 @@ export function ChatWorkspaceShellPage() {
     isPendingThread,
     isSending,
     messages,
+    modelsError,
     pageError,
-    selectedModel,
+    hasAvailableModels,
+    isLoadingModels,
+    selectedModelKey,
+    selectedModelLabel,
     selectedTool,
     selectThread,
     sendMessage,
     setComposerNotice,
     setDraft,
-    setSelectedModel,
+    setSelectedModelKey,
     setSelectedTool,
   } = useChatWorkspace(user?.id)
 
-  const alerts = pageError ? (
-    <Alert variant="destructive">
-      <AlertTitle>Chat unavailable</AlertTitle>
-      <AlertDescription>{pageError}</AlertDescription>
-    </Alert>
-  ) : null
+  const modelStatusMessage =
+    !isLoadingModels && !hasAvailableModels
+      ? "No chat models are enabled right now. Contact an admin to restore availability."
+      : ""
+
+  const alerts =
+    pageError || modelsError ? (
+      <div className="flex flex-col gap-3">
+        {modelsError ? (
+          <Alert variant="destructive">
+            <AlertTitle>Models unavailable</AlertTitle>
+            <AlertDescription>{modelsError}</AlertDescription>
+          </Alert>
+        ) : null}
+        {pageError ? (
+          <Alert variant="destructive">
+            <AlertTitle>Chat unavailable</AlertTitle>
+            <AlertDescription>{pageError}</AlertDescription>
+          </Alert>
+        ) : null}
+      </div>
+    ) : null
 
   return (
     <WorkspaceShell
@@ -49,8 +70,11 @@ export function ChatWorkspaceShellPage() {
       headerContent={
         <div className="min-w-0">
           <ChatModelMenu
-            selectedModel={selectedModel}
-            setSelectedModel={setSelectedModel}
+            isLoadingModels={isLoadingModels}
+            models={availableModels}
+            selectedModelKey={selectedModelKey}
+            selectedModelLabel={selectedModelLabel}
+            setSelectedModelKey={setSelectedModelKey}
           />
           <div className="truncate text-xs text-muted-foreground">Active model</div>
         </div>
@@ -82,17 +106,20 @@ export function ChatWorkspaceShellPage() {
               onNewChat={createNewChat}
             />
           ) : (
-            <ChatEmptyState selectedModel={selectedModel}>
+            <ChatEmptyState selectedModelLabel={selectedModelLabel}>
               <ChatComposer
                 composerNotice={composerNotice}
                 draft={draft}
                 isEmptyState
+                isLoadingModels={isLoadingModels}
                 isSending={isSending}
+                hasAvailableModels={hasAvailableModels}
+                modelStatusMessage={modelStatusMessage}
                 onComposerNotice={setComposerNotice}
                 onKeyDown={handleComposerKeyDown}
                 onPromptClick={setDraft}
                 onSubmit={sendMessage}
-                selectedModel={selectedModel}
+                selectedModelLabel={selectedModelLabel}
                 selectedTool={selectedTool}
                 setDraft={setDraft}
                 setSelectedTool={setSelectedTool}
@@ -107,12 +134,15 @@ export function ChatWorkspaceShellPage() {
               <ChatComposer
                 composerNotice={composerNotice}
                 draft={draft}
+                isLoadingModels={isLoadingModels}
                 isSending={isSending}
+                hasAvailableModels={hasAvailableModels}
+                modelStatusMessage={modelStatusMessage}
                 onComposerNotice={setComposerNotice}
                 onKeyDown={handleComposerKeyDown}
                 onPromptClick={setDraft}
                 onSubmit={sendMessage}
-                selectedModel={selectedModel}
+                selectedModelLabel={selectedModelLabel}
                 selectedTool={selectedTool}
                 setDraft={setDraft}
                 setSelectedTool={setSelectedTool}

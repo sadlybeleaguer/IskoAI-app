@@ -9,6 +9,8 @@ const SUPERADMIN_ROLE = "superadmin"
 const ARCHIVE_BAN_DURATION = "876000h"
 const PROFILE_FIELDS =
   "id, email, full_name, role, status, archived_at, created_at, updated_at"
+const MODEL_FIELDS =
+  "key, label, enabled, sort_order, created_at, updated_at"
 
 type Role = typeof DEFAULT_ROLE | typeof SUPERADMIN_ROLE
 type Status = typeof ACTIVE_STATUS | typeof ARCHIVED_STATUS
@@ -33,10 +35,22 @@ type UserMutationPayload = {
   userId?: string
 }
 
+type ListModelsPayload = {
+  action: "listModels"
+}
+
+type UpdateModelAvailabilityPayload = {
+  action: "updateModelAvailability"
+  modelKey?: string
+  enabled?: boolean
+}
+
 type ActionRequest =
   | ({ action?: "create" } & CreatePayload)
   | ({ action?: "update" } & UpdatePayload)
   | ({ action?: "archive" | "restore" | "delete" } & UserMutationPayload)
+  | ListModelsPayload
+  | UpdateModelAvailabilityPayload
 
 type ProfileRecord = {
   id: string
@@ -45,6 +59,15 @@ type ProfileRecord = {
   role: Role
   status: Status
   archived_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+type ChatModelRecord = {
+  key: string
+  label: string
+  enabled: boolean
+  sort_order: number
   created_at: string
   updated_at: string
 }
@@ -95,6 +118,22 @@ function requireUuid(value: unknown, fieldName: string) {
   }
 
   return value.trim()
+}
+
+function requireModelKey(value: unknown) {
+  if (typeof value !== "string" || value.trim() === "") {
+    throw new HttpError(400, "modelKey is required.")
+  }
+
+  return value.trim()
+}
+
+function requireBoolean(value: unknown, fieldName: string) {
+  if (typeof value !== "boolean") {
+    throw new HttpError(400, `${fieldName} must be a boolean.`)
+  }
+
+  return value
 }
 
 function requireEmail(value: unknown) {
@@ -219,7 +258,7 @@ async function getCallerProfile(
     callerProfile.role !== SUPERADMIN_ROLE ||
     callerProfile.status !== ACTIVE_STATUS
   ) {
-    throw new HttpError(403, "Only active superadmins can manage users.")
+    throw new HttpError(403, "Only active superadmins can manage admin resources.")
   }
 
   return callerProfile
@@ -503,6 +542,45 @@ async function handleDelete(
   })
 }
 
+async function handleListModels(serviceClient: SupabaseClient) {
+  const { data, error } = await serviceClient
+    .from("chat_models")
+    .select(MODEL_FIELDS)
+    .order("sort_order", { ascending: true })
+    .order("label", { ascending: true })
+
+  if (error) {
+    throw new HttpError(500, error.message)
+  }
+
+  return jsonResponse(200, { models: data ?? [] })
+}
+
+async function handleUpdateModelAvailability(
+  serviceClient: SupabaseClient,
+  payload: UpdateModelAvailabilityPayload,
+) {
+  const modelKey = requireModelKey(payload.modelKey)
+  const enabled = requireBoolean(payload.enabled, "enabled")
+
+  const { data, error } = await serviceClient
+    .from("chat_models")
+    .update({ enabled })
+    .eq("key", modelKey)
+    .select(MODEL_FIELDS)
+    .maybeSingle<ChatModelRecord>()
+
+  if (error) {
+    throw new HttpError(500, error.message)
+  }
+
+  if (!data) {
+    throw new HttpError(404, "Chat model was not found.")
+  }
+
+  return jsonResponse(200, { model: data })
+}
+
 Deno.serve(async (request: Request) => {
   if (request.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders })
@@ -534,8 +612,15 @@ Deno.serve(async (request: Request) => {
         return await handleRestore(serviceClient, payload)
       case "delete":
         return await handleDelete(serviceClient, callerProfile, payload)
+      case "listModels":
+        return await handleListModels(serviceClient)
+      case "updateModelAvailability":
+        return await handleUpdateModelAvailability(serviceClient, payload)
       default:
-        throw new HttpError(400, "Action must be one of create, update, archive, restore, or delete.")
+        throw new HttpError(
+          400,
+          "Action must be one of create, update, archive, restore, delete, listModels, or updateModelAvailability.",
+        )
     }
   } catch (error) {
     if (error instanceof HttpError) {

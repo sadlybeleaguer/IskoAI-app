@@ -29,8 +29,6 @@ export const cannedReplies = [
   "If you want a usable answer quickly, I would structure it around decisions, risks, owners, and the immediate next action.",
 ]
 
-export const modelOptions = ["GPT-5.4", "GPT-5.4 Mini", "GPT-4.1"]
-
 export function getThreadTitle(content) {
   return content.trim().replace(/\s+/g, " ").slice(0, 40) || "Untitled chat"
 }

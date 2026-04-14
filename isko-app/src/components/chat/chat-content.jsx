@@ -75,7 +75,7 @@ export function ChatThreadView({
   )
 }
 
-export function ChatEmptyState({ children, selectedModel }) {
+export function ChatEmptyState({ children, selectedModelLabel }) {
   return (
     <div className="mx-auto flex min-h-full w-full max-w-6xl flex-col justify-center px-4 py-10 sm:px-6 lg:px-8">
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-8">
@@ -84,7 +84,7 @@ export function ChatEmptyState({ children, selectedModel }) {
             <span className="flex size-10 items-center justify-center rounded-full border">
               <Sparkles className="size-5" />
             </span>
-            {selectedModel}
+            {selectedModelLabel || "No models available"}
           </div>
           <p className="text-sm text-muted-foreground">Workspace model</p>
         </div>
