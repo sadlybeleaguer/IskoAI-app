@@ -25,15 +25,15 @@ export function ChatModelsPage() {
     <AdminShell
       headerContent={
         <div className="min-w-0 flex-1">
-          <h1 className="text-sm font-medium">Chat models</h1>
-          <p className="text-xs text-muted-foreground">
-            Control which models appear in the chat model picker for users.
+          <h1 className="text-base font-medium tracking-tight">Chat models</h1>
+          <p className="text-sm text-muted-foreground">
+            Review model availability and control what users can select in chat.
           </p>
         </div>
       }
       userEmail={userEmail}
     >
-      <div className="grid gap-5 xl:max-w-3xl">
+      <div className="grid gap-5 xl:max-w-5xl">
         <ModelManagementCard
           isLoadingModels={isLoadingModels}
           models={models}
