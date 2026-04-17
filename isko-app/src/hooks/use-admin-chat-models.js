@@ -23,7 +23,7 @@ export function useAdminChatModels({ session }) {
     try {
       const { data, error } = await supabase
         .from("chat_models")
-        .select("key, label, enabled, sort_order, created_at, updated_at")
+        .select("key, label, provider, enabled, sort_order, created_at, updated_at")
         .order("sort_order", { ascending: true })
         .order("label", { ascending: true })
 
@@ -59,7 +59,7 @@ export function useAdminChatModels({ session }) {
           .from("chat_models")
           .update({ enabled: !model.enabled })
           .eq("key", model.key)
-          .select("key, label, enabled, sort_order, created_at, updated_at")
+          .select("key, label, provider, enabled, sort_order, created_at, updated_at")
           .single()
 
         if (error) {

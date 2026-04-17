@@ -25,6 +25,17 @@ function ModelStatusBadge({ enabled }) {
   )
 }
 
+function formatProvider(provider) {
+  switch (provider) {
+    case "openrouter":
+      return "OpenRouter"
+    case "huggingface-router":
+      return "Hugging Face Router"
+    default:
+      return provider || "Provider unavailable"
+  }
+}
+
 function formatUpdatedAt(value) {
   if (!value) {
     return "Updated time unavailable"
@@ -66,6 +77,9 @@ function ModelRow({ model, onToggleAvailability, updatingModelKey }) {
                 {model.label}
               </p>
               <ModelStatusBadge enabled={model.enabled} />
+              <span className="inline-flex items-center rounded-md border bg-muted/40 px-2 py-1 text-xs text-muted-foreground">
+                {formatProvider(model.provider)}
+              </span>
             </div>
 
             <p className="truncate text-sm text-muted-foreground">{model.key}</p>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import {
   archiveNote,
@@ -7,9 +7,11 @@ import {
   updateNote,
 } from "@/services/notes-service"
 import { getErrorMessage } from "@/utils/errors"
-import { getInitialNoteDraft } from "@/utils/notes"
+import { getInitialNoteDraft, normalizeNoteContent } from "@/utils/notes"
 
-export function useNotesWorkspace(userId) {
+const autosaveDelayMs = 300
+
+export function useNotesWorkspace(userId, preferredNoteId = null) {
   const [notes, setNotes] = useState([])
   const [activeNoteId, setActiveNoteId] = useState(null)
   const [draft, setDraft] = useState({ title: "", content: "" })
@@ -19,12 +21,117 @@ export function useNotesWorkspace(userId) {
   const [pageError, setPageError] = useState("")
   const [saveState, setSaveState] = useState("idle")
   const saveTimeoutRef = useRef(null)
-  const skipAutosaveRef = useRef(false)
+  const activeNoteRef = useRef(null)
+  const draftRef = useRef(draft)
+  const pendingSaveRef = useRef(null)
+  const lastPersistedDraftRef = useRef({
+    noteId: null,
+    title: "",
+    content: "",
+  })
 
   const activeNote = useMemo(
     () => notes.find((note) => note.id === activeNoteId) ?? null,
     [activeNoteId, notes],
   )
+
+  useEffect(() => {
+    activeNoteRef.current = activeNote
+  }, [activeNote])
+
+  useEffect(() => {
+    draftRef.current = draft
+  }, [draft])
+
+  const persistDraft = useCallback(async ({ noteId, draftSnapshot, userId }) => {
+    const fingerprint = `${noteId}::${draftSnapshot.title}\u0000${draftSnapshot.content}`
+
+    if (pendingSaveRef.current?.fingerprint === fingerprint) {
+      return pendingSaveRef.current.promise
+    }
+
+    const promise = updateNote({
+      noteId,
+      userId,
+      title: draftSnapshot.title,
+      content: draftSnapshot.content,
+    })
+      .then((updatedNote) => {
+        const persistedSnapshot = {
+          noteId: updatedNote.id,
+          title: updatedNote.title ?? "",
+          content: normalizeNoteContent(updatedNote.content),
+        }
+
+        lastPersistedDraftRef.current = persistedSnapshot
+        setNotes((currentNotes) =>
+          currentNotes
+            .map((note) => (note.id === updatedNote.id ? updatedNote : note))
+            .sort(
+              (left, right) =>
+                new Date(right.updated_at).valueOf() -
+                new Date(left.updated_at).valueOf(),
+            ),
+        )
+
+        return persistedSnapshot
+      })
+      .finally(() => {
+        if (pendingSaveRef.current?.fingerprint === fingerprint) {
+          pendingSaveRef.current = null
+        }
+      })
+
+    pendingSaveRef.current = { fingerprint, promise }
+    return promise
+  }, [])
+
+  const flushPendingSave = useCallback(async () => {
+    if (saveTimeoutRef.current) {
+      window.clearTimeout(saveTimeoutRef.current)
+      saveTimeoutRef.current = null
+    }
+
+    const currentNote = activeNoteRef.current
+    const currentDraft = draftRef.current
+    const persistedDraft = lastPersistedDraftRef.current
+
+    if (!currentNote || !userId || persistedDraft.noteId !== currentNote.id) {
+      return true
+    }
+
+    if (
+      currentDraft.title === persistedDraft.title &&
+      currentDraft.content === persistedDraft.content
+    ) {
+      return true
+    }
+
+    setSaveState("saving")
+    setPageError("")
+
+    try {
+      const savedDraft = await persistDraft({
+        noteId: currentNote.id,
+        draftSnapshot: currentDraft,
+        userId,
+      })
+      const latestDraft = draftRef.current
+
+      setSaveState(
+        latestDraft.title === savedDraft.title &&
+          latestDraft.content === savedDraft.content
+          ? "saved"
+          : "saving",
+      )
+
+      return true
+    } catch (error) {
+      setSaveState("error")
+      setPageError(getErrorMessage(error))
+      return false
+    }
+  }, [persistDraft, userId])
 
   useEffect(() => {
     if (!userId) {
@@ -49,6 +156,13 @@ export function useNotesWorkspace(userId) {
 
         setNotes(nextNotes)
         setActiveNoteId((currentNoteId) => {
+          if (
+            preferredNoteId &&
+            nextNotes.some((note) => note.id === preferredNoteId)
+          ) {
+            return preferredNoteId
+          }
+
           if (currentNoteId && nextNotes.some((note) => note.id === currentNoteId)) {
             return currentNoteId
           }
@@ -75,57 +189,83 @@ export function useNotesWorkspace(userId) {
     return () => {
       isMounted = false
     }
-  }, [userId])
+  }, [preferredNoteId, userId])
 
   useEffect(() => {
-    skipAutosaveRef.current = true
-    setDraft(getInitialNoteDraft(activeNote))
+    if (
+      !preferredNoteId ||
+      !notes.length ||
+      activeNoteId === preferredNoteId ||
+      !notes.some((note) => note.id === preferredNoteId)
+    ) {
+      return
+    }
+
+    setActiveNoteId(preferredNoteId)
+  }, [activeNoteId, notes, preferredNoteId])
+
+  useEffect(() => {
+    const nextDraft = getInitialNoteDraft(activeNote)
+
+    lastPersistedDraftRef.current = {
+      noteId: activeNote?.id ?? null,
+      title: nextDraft.title,
+      content: nextDraft.content,
+    }
+    setDraft(nextDraft)
     setSaveState("idle")
-  }, [activeNote])
+  }, [activeNote?.id])
 
   useEffect(() => {
     if (!activeNote || !userId) {
       return undefined
     }
-
-    if (skipAutosaveRef.current) {
-      skipAutosaveRef.current = false
-      return undefined
-    }
+    const persistedDraft = lastPersistedDraftRef.current
 
     if (
-      draft.title === activeNote.title &&
-      draft.content === activeNote.content
+      persistedDraft.noteId !== activeNote.id ||
+      (draft.title === persistedDraft.title &&
+        draft.content === persistedDraft.content)
     ) {
       return undefined
     }
 
     setSaveState("saving")
+    const noteId = activeNote.id
+    const draftSnapshot = draft
 
     saveTimeoutRef.current = window.setTimeout(async () => {
       try {
-        const updatedNote = await updateNote({
-          noteId: activeNote.id,
-          userId,
-          title: draft.title,
-          content: draft.content,
-        })
+        setPageError("")
 
-        setNotes((currentNotes) =>
-          currentNotes
-            .map((note) => (note.id === updatedNote.id ? updatedNote : note))
-            .sort(
-              (left, right) =>
-                new Date(right.updated_at).valueOf() -
-                new Date(left.updated_at).valueOf(),
-            ),
+        const savedDraft = await persistDraft({
+          noteId,
+          draftSnapshot,
+          userId,
+        })
+        const latestDraft = draftRef.current
+
+        if (activeNoteRef.current?.id !== noteId) {
+          return
+        }
+
+        setSaveState(
+          latestDraft.title === savedDraft.title &&
+            latestDraft.content === savedDraft.content
+            ? "saved"
+            : "saving",
         )
-        setSaveState("saved")
       } catch (error) {
+        if (activeNoteRef.current?.id !== noteId) {
+          return
+        }
+
         setSaveState("error")
         setPageError(getErrorMessage(error))
+      } finally {
+        saveTimeoutRef.current = null
       }
-    }, 450)
+    }, autosaveDelayMs)
 
     return () => {
       if (saveTimeoutRef.current) {
@@ -139,6 +279,12 @@ export function useNotesWorkspace(userId) {
       return
     }
 
+    const hasSavedCurrentDraft = await flushPendingSave()
+
+    if (!hasSavedCurrentDraft) {
+      return
+    }
+
     setIsCreating(true)
     setPageError("")
 
@@ -146,8 +292,10 @@ export function useNotesWorkspace(userId) {
       const nextNote = await createNote({ userId })
       setNotes((currentNotes) => [nextNote, ...currentNotes])
       setActiveNoteId(nextNote.id)
+      return nextNote
     } catch (error) {
       setPageError(getErrorMessage(error))
+      return null
     } finally {
       setIsCreating(false)
     }
@@ -155,6 +303,12 @@ export function useNotesWorkspace(userId) {
 
   const handleDeleteNote = async () => {
     if (!userId || !activeNote || isDeleting) {
+      return
+    }
+
+    const hasSavedCurrentDraft = await flushPendingSave()
+
+    if (!hasSavedCurrentDraft) {
       return
     }
 
@@ -170,12 +324,31 @@ export function useNotesWorkspace(userId) {
       const remainingNotes = notes.filter((note) => note.id !== activeNote.id)
       setNotes(remainingNotes)
       setActiveNoteId(remainingNotes[0]?.id ?? null)
+      return remainingNotes[0]?.id ?? null
     } catch (error) {
       setPageError(getErrorMessage(error))
+      return activeNote.id
     } finally {
       setIsDeleting(false)
     }
   }
+
+  const handleSelectNote = useCallback(
+    async (noteId) => {
+      if (!noteId || noteId === activeNoteRef.current?.id) {
+        return
+      }
+
+      const hasSavedCurrentDraft = await flushPendingSave()
+
+      if (!hasSavedCurrentDraft) {
+        return
+      }
+
+      setActiveNoteId(noteId)
+    },
+    [flushPendingSave],
+  )
 
   return {
     activeNote,
@@ -187,7 +360,7 @@ export function useNotesWorkspace(userId) {
     notes,
     pageError,
     saveState,
-    selectNote: setActiveNoteId,
+    selectNote: handleSelectNote,
     setDraft,
     createNote: handleCreateNote,
     deleteNote: handleDeleteNote,

@@ -7,10 +7,11 @@ const ARCHIVED_STATUS = "archived"
 const DEFAULT_ROLE = "user"
 const SUPERADMIN_ROLE = "superadmin"
 const ARCHIVE_BAN_DURATION = "876000h"
+const DUPLICATE_EMAIL_ERROR = "Email is already in use."
 const PROFILE_FIELDS =
   "id, email, full_name, role, status, archived_at, created_at, updated_at"
 const MODEL_FIELDS =
-  "key, label, enabled, sort_order, created_at, updated_at"
+  "key, label, provider, enabled, sort_order, created_at, updated_at"
 
 type Role = typeof DEFAULT_ROLE | typeof SUPERADMIN_ROLE
 type Status = typeof ACTIVE_STATUS | typeof ARCHIVED_STATUS
@@ -66,6 +67,7 @@ type ProfileRecord = {
 type ChatModelRecord = {
   key: string
   label: string
+  provider: string
   enabled: boolean
   sort_order: number
   created_at: string
@@ -187,6 +189,23 @@ function requirePassword(value: unknown) {
   return value
 }
 
+function isDuplicateAuthErrorMessage(message: string | undefined) {
+  return /email.*(already|exists|registered|use)|already.*registered/i.test(
+    message ?? "",
+  )
+}
+
+function throwAuthMutationError(
+  error: { message?: string } | null | undefined,
+  fallbackMessage: string,
+): never {
+  if (isDuplicateAuthErrorMessage(error?.message)) {
+    throw new HttpError(409, DUPLICATE_EMAIL_ERROR)
+  }
+
+  throw new HttpError(400, error?.message ?? fallbackMessage)
+}
+
 function ensureArchivedUsersAreNotSuperadmins(role: Role, status: Status) {
   if (status === ARCHIVED_STATUS && role === SUPERADMIN_ROLE) {
     throw new HttpError(
@@ -282,6 +301,25 @@ async function getProfileById(serviceClient: SupabaseClient, userId: string) {
   return data
 }
 
+async function ensureEmailIsAvailable(
+  serviceClient: SupabaseClient,
+  email: string,
+  excludeUserId?: string,
+) {
+  const { data, error } = await serviceClient.rpc("is_email_in_use", {
+    input_email: email,
+    excluded_user_id: excludeUserId ?? null,
+  })
+
+  if (error) {
+    throw new HttpError(500, error.message)
+  }
+
+  if (data) {
+    throw new HttpError(409, DUPLICATE_EMAIL_ERROR)
+  }
+}
+
 async function ensureNotLastActiveSuperadmin(
   serviceClient: SupabaseClient,
   targetProfile: ProfileRecord,
@@ -344,6 +382,10 @@ async function updateProfileRecord(
     .single<ProfileRecord>()
 
   if (error) {
+    if (error.code === "23505") {
+      throw new HttpError(409, DUPLICATE_EMAIL_ERROR)
+    }
+
     throw new HttpError(500, error.message)
   }
 
@@ -361,6 +403,7 @@ async function handleCreate(
   const status = validateStatus(payload.status ?? ACTIVE_STATUS)
 
   ensureArchivedUsersAreNotSuperadmins(role, status)
+  await ensureEmailIsAvailable(serviceClient, email)
 
   const { data: createdUser, error: createError } =
     await serviceClient.auth.admin.createUser({
@@ -372,7 +415,7 @@ async function handleCreate(
     })
 
   if (createError || !createdUser.user) {
-    throw new HttpError(400, createError?.message ?? "Unable to create user.")
+    throwAuthMutationError(createError, "Unable to create user.")
   }
 
   try {
@@ -416,6 +459,7 @@ async function handleUpdate(
   }
 
   await ensureNotLastActiveSuperadmin(serviceClient, targetProfile, role, status)
+  await ensureEmailIsAvailable(serviceClient, email, userId)
 
   const { error: authError } = await serviceClient.auth.admin.updateUserById(
     userId,
@@ -427,7 +471,7 @@ async function handleUpdate(
   )
 
   if (authError) {
-    throw new HttpError(400, authError.message)
+    throwAuthMutationError(authError, "Unable to update user.")
   }
 
   const profile = await updateProfileRecord(serviceClient, userId, {

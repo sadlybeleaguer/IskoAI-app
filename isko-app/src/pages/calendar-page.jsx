@@ -1,4 +1,5 @@
 import { Plus } from "lucide-react"
+import { useSearchParams } from "react-router-dom"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { CalendarDayPanel } from "@/components/calendar/calendar-day-panel"
@@ -12,6 +13,9 @@ import { useCalendarWorkspace } from "@/hooks/use-calendar-workspace"
 
 export function CalendarPage() {
   const { user } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const preferredDateValue = searchParams.get("date")
+  const preferredEventId = searchParams.get("eventId")
   const {
     activeEventId,
     createEventDraft,
@@ -36,7 +40,50 @@ export function CalendarPage() {
     setDraft,
     upcomingEvents,
     deleteEvent,
-  } = useCalendarWorkspace(user?.id)
+  } = useCalendarWorkspace(user?.id, {
+    preferredDateValue,
+    preferredEventId,
+  })
+
+  const updateSearchParams = (date, eventId = "") => {
+    const nextSearchParams = new URLSearchParams(searchParams)
+
+    if (date) {
+      nextSearchParams.set("date", date.toISOString())
+    } else {
+      nextSearchParams.delete("date")
+    }
+
+    if (eventId) {
+      nextSearchParams.set("eventId", eventId)
+    } else {
+      nextSearchParams.delete("eventId")
+    }
+
+    setSearchParams(nextSearchParams, { replace: true })
+  }
+
+  const handleSelectDate = (date, nextActiveEventId = null) => {
+    updateSearchParams(date, nextActiveEventId ?? "")
+    selectDate(date, nextActiveEventId)
+  }
+
+  const handleSelectEvent = (event) => {
+    const eventDate = new Date(event.starts_at)
+    updateSearchParams(eventDate, event.id)
+    selectEvent(event)
+  }
+
+  const handleGoToToday = () => {
+    const today = new Date()
+    updateSearchParams(today)
+    goToToday()
+  }
+
+  const handleCreateEventDraft = (date = selectedDate) => {
+    updateSearchParams(date)
+    createEventDraft(date)
+  }
 
   const alerts = pageError ? (
     <Alert variant="destructive">
@@ -60,17 +107,19 @@ export function CalendarPage() {
       primaryAction={{
         label: "New event",
         icon: Plus,
-        onClick: () => createEventDraft(selectedDate),
+        onClick: () => handleCreateEventDraft(selectedDate),
       }}
       sidebarContent={
         <CalendarSidebar
           activeEventId={activeEventId}
           isLoading={isLoading}
           onGoToToday={() => {
+            const today = new Date()
+            updateSearchParams(today)
             goToToday()
-            createEventDraft(new Date())
+            createEventDraft(today)
           }}
-          onSelectEvent={selectEvent}
+          onSelectEvent={handleSelectEvent}
           upcomingEvents={upcomingEvents}
         />
       }
@@ -81,7 +130,7 @@ export function CalendarPage() {
             currentMonthLabel={currentMonthLabel}
             onGoToNextMonth={goToNextMonth}
             onGoToPreviousMonth={goToPreviousMonth}
-            onGoToToday={goToToday}
+            onGoToToday={handleGoToToday}
           />
 
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
@@ -89,7 +138,7 @@ export function CalendarPage() {
               currentMonth={currentMonth}
               events={events}
               monthDays={monthDays}
-              onSelectDate={selectDate}
+              onSelectDate={handleSelectDate}
               selectedDate={selectedDate}
             />
 
@@ -99,11 +148,11 @@ export function CalendarPage() {
               formError={formError}
               isDeleting={isDeleting}
               isSaving={isSaving}
-              onCreateEvent={createEventDraft}
+              onCreateEvent={handleCreateEventDraft}
               onDeleteEvent={deleteEvent}
               onDraftChange={setDraft}
               onSaveEvent={saveEvent}
-              onSelectEvent={selectEvent}
+              onSelectEvent={handleSelectEvent}
               selectedDate={selectedDate}
               selectedDayEvents={selectedDayEvents}
             />

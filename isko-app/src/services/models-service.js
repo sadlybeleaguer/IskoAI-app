@@ -1,9 +1,21 @@
 import { supabase } from "@/services/supabase"
 
 export const defaultChatModels = [
-  { key: "gpt-5.4", label: "GPT-5.4" },
-  { key: "gpt-5.4-mini", label: "GPT-5.4 Mini" },
-  { key: "gpt-4.1", label: "GPT-4.1" },
+  {
+    key: "MiniMaxAI/MiniMax-M2.7:together",
+    label: "MiniMaxAI/MiniMax-M2.7:together",
+    provider: "huggingface-router",
+  },
+  {
+    key: "openrouter/free",
+    label: "OpenRouter Free Router",
+    provider: "openrouter",
+  },
+  {
+    key: "google/gemma-4-26b-a4b-it:free",
+    label: "Google Gemma 4 26B A4B (Free)",
+    provider: "openrouter",
+  },
 ]
 
 function isMissingRelationError(error) {
@@ -20,7 +32,7 @@ export async function listAvailableChatModels() {
 
   const { data, error } = await supabase
     .from("chat_models")
-    .select("key, label")
+    .select("key, label, provider")
     .eq("enabled", true)
     .order("sort_order", { ascending: true })
     .order("label", { ascending: true })
