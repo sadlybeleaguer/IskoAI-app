@@ -6,7 +6,8 @@ import { CalendarPage } from "@/pages/calendar-page"
 import { ChatModelsPage } from "@/pages/chat-models-page"
 import { ChatWorkspaceShellPage } from "@/pages/chat-workspace-shell-page"
 import { DashboardPage } from "@/pages/dashboard-page"
-import { NotesPage } from "@/pages/notes-page"
+import { NotesLibraryPage } from "@/pages/notes-library-page"
+import { NotesEditorPage } from "@/pages/notes-page"
 import { AuthenticatedRoute } from "@/routes/authenticated-route"
 import { GuestOnlyRoute } from "@/routes/guest-only-route"
 import { HomeRedirect } from "@/routes/home-redirect"
@@ -24,7 +25,8 @@ function App() {
           </Route>
           <Route element={<AuthenticatedRoute />}>
             <Route path="/chat" element={<ChatWorkspaceShellPage />} />
-            <Route path="/notes" element={<NotesPage />} />
+            <Route path="/notes" element={<NotesLibraryPage />} />
+            <Route path="/notes/:noteId" element={<NotesEditorPage />} />
             <Route path="/calendar" element={<CalendarPage />} />
           </Route>
           <Route element={<ProtectedRoute />}>

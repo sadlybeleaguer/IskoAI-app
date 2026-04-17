@@ -13,17 +13,42 @@ import {
   getGridRange,
   getMonthDays,
   getNewEventDraft,
+  isSameDay,
   startOfDay,
   startOfMonth,
 } from "@/utils/calendar"
 import { getErrorMessage } from "@/utils/errors"
 
-export function useCalendarWorkspace(userId) {
-  const [currentMonth, setCurrentMonth] = useState(() => startOfMonth(new Date()))
-  const [selectedDate, setSelectedDate] = useState(() => startOfDay(new Date()))
+function getValidDate(value) {
+  if (!value) {
+    return null
+  }
+
+  const date = new Date(value)
+  return Number.isNaN(date.valueOf()) ? null : date
+}
+
+function isSameMonth(left, right) {
+  return (
+    left.getFullYear() === right.getFullYear() &&
+    left.getMonth() === right.getMonth()
+  )
+}
+
+export function useCalendarWorkspace(
+  userId,
+  { preferredDateValue = null, preferredEventId = null } = {},
+) {
+  const preferredDate = useMemo(
+    () => getValidDate(preferredDateValue),
+    [preferredDateValue],
+  )
+  const initialDate = preferredDate ?? new Date()
+  const [currentMonth, setCurrentMonth] = useState(() => startOfMonth(initialDate))
+  const [selectedDate, setSelectedDate] = useState(() => startOfDay(initialDate))
   const [events, setEvents] = useState([])
   const [activeEventId, setActiveEventId] = useState(null)
-  const [draft, setDraft] = useState(() => getNewEventDraft(new Date()))
+  const [draft, setDraft] = useState(() => getNewEventDraft(initialDate))
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -102,6 +127,37 @@ export function useCalendarWorkspace(userId) {
         .slice(0, 8),
     [events],
   )
+
+  useEffect(() => {
+    if (!preferredDate) {
+      return
+    }
+
+    const nextSelectedDate = startOfDay(preferredDate)
+    const nextMonth = startOfMonth(preferredDate)
+
+    setSelectedDate((currentDate) =>
+      isSameDay(currentDate, nextSelectedDate) ? currentDate : nextSelectedDate,
+    )
+    setCurrentMonth((currentMonthValue) =>
+      isSameMonth(currentMonthValue, nextMonth) ? currentMonthValue : nextMonth,
+    )
+  }, [preferredDate])
+
+  useEffect(() => {
+    if (!preferredEventId) {
+      return
+    }
+
+    const preferredEvent = events.find((event) => event.id === preferredEventId)
+
+    if (!preferredEvent || activeEventId === preferredEventId) {
+      return
+    }
+
+    setActiveEventId(preferredEventId)
+    setSelectedDate(startOfDay(new Date(preferredEvent.starts_at)))
+  }, [activeEventId, events, preferredEventId])
 
   useEffect(() => {
     setDraft(getEventDraft(activeEvent, selectedDate))

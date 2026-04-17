@@ -15,6 +15,7 @@ import {
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { WorkspaceSearch } from "@/components/layout/workspace-search"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -26,6 +27,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { useAuth } from "@/contexts/auth-context"
+import { useWorkspaceSearch } from "@/hooks/use-workspace-search"
 import { supabase } from "@/services/supabase"
 import { cn } from "@/utils/cn"
 
@@ -66,19 +68,27 @@ export function WorkspaceShell({
   alerts,
   children,
   headerContent,
-  onSearchPlaceholder,
   pageKey,
   primaryAction,
   sidebarContent,
 }) {
   const location = useLocation()
   const navigate = useNavigate()
-  const { isSuperadmin, profile, userEmail } = useAuth()
+  const { isSuperadmin, profile, user, userEmail } = useAuth()
   const [isNavOpen, setIsNavOpen] = useState(false)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(getStoredCollapseState)
-  const [shellNotice, setShellNotice] = useState("")
+  const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [isSigningOut, setIsSigningOut] = useState(false)
   const [signOutError, setSignOutError] = useState("")
+  const isChatPage = pageKey === "chat"
+  const {
+    errorMessage: searchErrorMessage,
+    flatResults,
+    groupedResults,
+    isLoading: isLoadingSearch,
+    query: searchQuery,
+    setQuery: setSearchQuery,
+  } = useWorkspaceSearch(user?.id, isSearchOpen)
 
   const displayName = profile?.full_name?.trim() || userEmail || "IskoAI user"
   const initials = useMemo(() => getInitials(displayName), [displayName])
@@ -92,12 +102,39 @@ export function WorkspaceShell({
 
   useEffect(() => {
     setIsNavOpen(false)
-    setShellNotice("")
   }, [location.pathname])
 
-  const handleSearchPlaceholder = () => {
-    setShellNotice("Search is not connected yet.")
-    onSearchPlaceholder?.()
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault()
+        setIsSearchOpen(true)
+        return
+      }
+
+      if (event.key === "Escape") {
+        setIsSearchOpen(false)
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown)
+    }
+  }, [])
+
+  const handleOpenSearch = () => {
+    setIsSearchOpen(true)
+  }
+
+  const handleCloseSearch = () => {
+    setIsSearchOpen(false)
+  }
+
+  const handleSelectSearchResult = (result) => {
+    setIsSearchOpen(false)
+    navigate(result.href)
   }
 
   const handleSignOut = async () => {
@@ -248,7 +285,7 @@ export function WorkspaceShell({
           type="button"
           variant="ghost"
           size="icon"
-          onClick={handleSearchPlaceholder}
+          onClick={handleOpenSearch}
           aria-label="Search"
         >
           <Search data-icon="inline-start" />
@@ -302,7 +339,7 @@ export function WorkspaceShell({
           type="button"
           variant="ghost"
           className="h-9 w-full justify-start px-3 text-muted-foreground"
-          onClick={handleSearchPlaceholder}
+          onClick={handleOpenSearch}
         >
           <Search data-icon="inline-start" />
           Search
@@ -317,87 +354,148 @@ export function WorkspaceShell({
     </div>
   )
 
+  const shellBanners = (
+    <>
+      {signOutError ? (
+        <div className="border-b px-4 py-4 sm:px-6">
+          <Alert variant="destructive">
+            <AlertTitle>Sign-out failed</AlertTitle>
+            <AlertDescription>{signOutError}</AlertDescription>
+          </Alert>
+        </div>
+      ) : null}
+
+      {alerts ? <div className="border-b px-4 py-4 sm:px-6">{alerts}</div> : null}
+    </>
+  )
+
   return (
     <div
-      className="min-h-screen bg-background text-foreground"
+      className={cn(
+        "bg-background text-foreground",
+        isChatPage ? "h-svh overflow-hidden" : "min-h-screen",
+      )}
       style={{
         "--workspace-sidebar-width": isSidebarCollapsed ? "4.5rem" : "15.5rem",
+        "--workspace-sidebar-drawer-width": "clamp(15rem, 82vw, 16rem)",
       }}
     >
-      <div className="grid min-h-screen lg:grid-cols-[var(--workspace-sidebar-width)_minmax(0,1fr)]">
-        <aside className="hidden border-r lg:block">
-          {isSidebarCollapsed ? renderCollapsedSidebar() : renderExpandedSidebar()}
-        </aside>
+      {isChatPage ? (
+        <>
+          <aside className="fixed inset-y-0 left-0 z-30 hidden w-[var(--workspace-sidebar-width)] border-r bg-sidebar lg:block">
+            <div className="h-svh">
+              {isSidebarCollapsed ? renderCollapsedSidebar() : renderExpandedSidebar()}
+            </div>
+          </aside>
 
-        {isNavOpen ? (
-          <div
-            className="fixed inset-0 z-50 bg-black/40 lg:hidden"
-            onClick={() => setIsNavOpen(false)}
-          >
-            <aside
-              className="h-full w-[15.5rem] border-r"
-              onClick={(event) => event.stopPropagation()}
-            >
-              {renderExpandedSidebar(true)}
-            </aside>
-          </div>
-        ) : null}
-
-        <main className="flex min-h-screen min-w-0 flex-col">
-          <header className="border-b">
-            <div className="flex items-center gap-3 px-4 py-3 sm:px-6">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                className="lg:hidden"
-                onClick={() => setIsNavOpen(true)}
-                aria-label="Open navigation"
+          {isNavOpen ? (
+            <>
+              <div
+                className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+                onClick={() => setIsNavOpen(false)}
+              />
+              <aside
+                className="fixed inset-y-0 left-0 z-50 w-[var(--workspace-sidebar-drawer-width)] border-r bg-sidebar lg:hidden"
+                onClick={(event) => event.stopPropagation()}
               >
-                <Menu data-icon="inline-start" />
-              </Button>
+                <div className="h-svh">{renderExpandedSidebar(true)}</div>
+              </aside>
+            </>
+          ) : null}
 
-              <div className="min-w-0 flex-1">{headerContent}</div>
+          <div className="flex h-svh min-w-0 flex-col lg:pl-[var(--workspace-sidebar-width)]">
+            <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+              <div className="flex items-center gap-3 px-4 py-3 sm:px-6">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  className="lg:hidden"
+                  onClick={() => setIsNavOpen(true)}
+                  aria-label="Open navigation"
+                >
+                  <Menu data-icon="inline-start" />
+                </Button>
 
-              <div className="ml-auto">
-                {renderUserMenu({
-                  triggerClassName: "h-8 justify-start border bg-background px-2.5 shadow-none",
-                })}
+                <div className="min-w-0 flex-1">{headerContent}</div>
+
+                <div className="ml-auto">
+                  {renderUserMenu({
+                    triggerClassName: "h-8 justify-start border bg-background px-2.5 shadow-none",
+                  })}
+                </div>
               </div>
-            </div>
-          </header>
+            </header>
 
-          {shellNotice ? (
-            <div className="border-b px-4 py-4 sm:px-6">
-              <Alert>
-                <Search className="size-4" />
-                <AlertTitle>Search</AlertTitle>
-                <AlertDescription>{shellNotice}</AlertDescription>
-              </Alert>
-            </div>
-          ) : null}
+            {shellBanners}
 
-          {signOutError ? (
-            <div className="border-b px-4 py-4 sm:px-6">
-              <Alert variant="destructive">
-                <AlertTitle>Sign-out failed</AlertTitle>
-                <AlertDescription>{signOutError}</AlertDescription>
-              </Alert>
-            </div>
-          ) : null}
-
-          {alerts ? <div className="border-b px-4 py-4 sm:px-6">{alerts}</div> : null}
-
-          <div
-            className={cn(
-              "flex min-h-0 flex-1 flex-col",
-              pageKey === "chat" ? "" : "overflow-hidden",
-            )}
-          >
-            {children}
+            <main className="flex min-h-0 flex-1 min-w-0 flex-col overflow-hidden">
+              {children}
+            </main>
           </div>
-        </main>
-      </div>
+        </>
+      ) : (
+        <div className="grid min-h-screen lg:grid-cols-[var(--workspace-sidebar-width)_minmax(0,1fr)]">
+          <aside className="hidden border-r lg:block">
+            {isSidebarCollapsed ? renderCollapsedSidebar() : renderExpandedSidebar()}
+          </aside>
+
+          {isNavOpen ? (
+            <div
+              className="fixed inset-0 z-50 bg-black/40 lg:hidden"
+              onClick={() => setIsNavOpen(false)}
+            >
+              <aside
+                className="h-full w-[15.5rem] border-r"
+                onClick={(event) => event.stopPropagation()}
+              >
+                {renderExpandedSidebar(true)}
+              </aside>
+            </div>
+          ) : null}
+
+          <main className="flex min-h-screen min-w-0 flex-col">
+            <header className="border-b">
+              <div className="flex items-center gap-3 px-4 py-3 sm:px-6">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  className="lg:hidden"
+                  onClick={() => setIsNavOpen(true)}
+                  aria-label="Open navigation"
+                >
+                  <Menu data-icon="inline-start" />
+                </Button>
+
+                <div className="min-w-0 flex-1">{headerContent}</div>
+
+                <div className="ml-auto">
+                  {renderUserMenu({
+                    triggerClassName: "h-8 justify-start border bg-background px-2.5 shadow-none",
+                  })}
+                </div>
+              </div>
+            </header>
+
+            {shellBanners}
+
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</div>
+          </main>
+        </div>
+      )}
+
+      <WorkspaceSearch
+        errorMessage={searchErrorMessage}
+        flatResults={flatResults}
+        groupedResults={groupedResults}
+        isLoading={isLoadingSearch}
+        onClose={handleCloseSearch}
+        onSelectResult={handleSelectSearchResult}
+        open={isSearchOpen}
+        query={searchQuery}
+        setQuery={setSearchQuery}
+      />
     </div>
   )
 }

@@ -1,5 +1,5 @@
 import { cn } from "@/utils/cn"
-import { formatNoteTimestamp, getNoteTitle } from "@/utils/notes"
+import { formatNoteTimestamp, getNotePreview, getNoteTitle } from "@/utils/notes"
 
 export function NotesSidebar({
   activeNoteId,
@@ -32,6 +32,9 @@ export function NotesSidebar({
           onClick={() => onSelectNote(note.id)}
         >
           <span className="truncate text-sm font-medium">{getNoteTitle(note)}</span>
+          <span className="max-h-10 overflow-hidden text-xs leading-5 text-muted-foreground">
+            {getNotePreview(note)}
+          </span>
           <span className="truncate text-xs text-muted-foreground">
             {formatNoteTimestamp(note.updated_at)}
           </span>

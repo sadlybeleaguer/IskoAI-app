@@ -4,6 +4,7 @@ import {
   createContext,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from "react"
 
@@ -38,6 +39,11 @@ export function AuthProvider({ children }) {
   const [sessionError, setSessionError] = useState("")
   const [profileError, setProfileError] = useState("")
   const [authNotice, setAuthNotice] = useState("")
+  const sessionUserIdRef = useRef(null)
+
+  useEffect(() => {
+    sessionUserIdRef.current = session?.user?.id ?? null
+  }, [session?.user?.id])
 
   useEffect(() => {
     if (!supabase) {
@@ -83,15 +89,29 @@ export function AuthProvider({ children }) {
         return
       }
 
+      const nextUserId = nextSession?.user?.id ?? null
+      const currentUserId = sessionUserIdRef.current
+      const didUserChange = nextUserId !== currentUserId
+
       if (nextSession) {
         setAuthNotice("")
       }
 
       setSession(nextSession ?? null)
-      setProfile(null)
-      setProfileError("")
       setSessionError("")
-      setIsLoading(Boolean(nextSession))
+
+      if (!nextSession) {
+        setProfile(null)
+        setProfileError("")
+        setIsLoading(false)
+        return
+      }
+
+      if (didUserChange) {
+        setProfile(null)
+        setProfileError("")
+        setIsLoading(true)
+      }
     })
 
     return () => {
@@ -159,7 +179,7 @@ export function AuthProvider({ children }) {
     return () => {
       isMounted = false
     }
-  }, [session])
+  }, [session?.user?.id])
 
   const refreshProfile = async () => {
     if (!supabase || !session?.user?.id) {

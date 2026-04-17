@@ -1,7 +1,7 @@
 import { supabase } from "@/services/supabase"
 
 const threadSelect =
-  "id, user_id, title, archived_at, created_at, updated_at"
+  "id, user_id, title, selected_tool, attached_note_id, attached_note_title, archived_at, created_at, updated_at"
 const messageSelect =
   "id, thread_id, user_id, role, content, created_at"
 
@@ -70,15 +70,93 @@ export async function listChatMessages(userId, threadId) {
   return data ?? []
 }
 
-export async function createChatThread({ userId, title }) {
+export async function createChatThread({
+  attachedNoteId = null,
+  selectedTool = "",
+  title,
+  userId,
+}) {
   const client = requireClient()
 
   const { data, error } = await client
     .from("chat_threads")
     .insert({
+      attached_note_id: attachedNoteId,
+      selected_tool: selectedTool,
       user_id: userId,
       title,
     })
+    .select(threadSelect)
+    .single()
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return data
+}
+
+export async function updateChatThreadTool({
+  selectedTool,
+  threadId,
+  userId,
+}) {
+  const client = requireClient()
+
+  const { data, error } = await client
+    .from("chat_threads")
+    .update({
+      selected_tool: selectedTool,
+    })
+    .eq("id", threadId)
+    .eq("user_id", userId)
+    .select(threadSelect)
+    .single()
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return data
+}
+
+export async function updateChatThreadAttachment({
+  attachedNoteId,
+  threadId,
+  userId,
+}) {
+  const client = requireClient()
+
+  const { data, error } = await client
+    .from("chat_threads")
+    .update({
+      attached_note_id: attachedNoteId,
+    })
+    .eq("id", threadId)
+    .eq("user_id", userId)
+    .select(threadSelect)
+    .single()
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return data
+}
+
+export async function archiveChatThread({
+  threadId,
+  userId,
+}) {
+  const client = requireClient()
+
+  const { data, error } = await client
+    .from("chat_threads")
+    .update({
+      archived_at: new Date().toISOString(),
+    })
+    .eq("id", threadId)
+    .eq("user_id", userId)
     .select(threadSelect)
     .single()
 
@@ -105,6 +183,30 @@ export async function createChatMessage({
       role,
       content,
     })
+    .select(messageSelect)
+    .single()
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return data
+}
+
+export async function updateChatMessage({
+  messageId,
+  userId,
+  content,
+}) {
+  const client = requireClient()
+
+  const { data, error } = await client
+    .from("chat_messages")
+    .update({
+      content,
+    })
+    .eq("id", messageId)
+    .eq("user_id", userId)
     .select(messageSelect)
     .single()
 

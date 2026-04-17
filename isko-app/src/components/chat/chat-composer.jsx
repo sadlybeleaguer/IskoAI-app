@@ -8,7 +8,9 @@ import {
   Mic,
   Paperclip,
   Plus,
+  Square,
   Wrench,
+  X,
 } from "lucide-react"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -86,17 +88,23 @@ export function ChatModelMenu({
 }
 
 export function ChatComposer({
+  attachedNote,
   composerNotice,
   draft,
   isEmptyState = false,
   isLoadingModels = false,
+  isUpdatingAttachedNote = false,
   isSending,
   hasAvailableModels = true,
   modelStatusMessage = "",
+  onOpenNotePicker,
   onComposerNotice,
   onKeyDown,
   onPromptClick,
+  onRemoveAttachedNote,
+  onStopStreaming,
   onSubmit,
+  isStreaming = false,
   selectedModelLabel,
   selectedTool,
   setDraft,
@@ -138,9 +146,9 @@ export function ChatComposer({
                       <Paperclip data-icon="inline-start" />
                       Upload files
                     </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => onComposerNotice("Attach notes is not connected yet.")}>
+                    <DropdownMenuItem onSelect={onOpenNotePicker}>
                       <FileText data-icon="inline-start" />
-                      Attach notes
+                      {attachedNote ? "Replace attached note" : "Attach notes"}
                     </DropdownMenuItem>
                   </DropdownMenuGroup>
                 </DropdownMenuContent>
@@ -176,6 +184,11 @@ export function ChatComposer({
                 Model {selectedModelLabel || (isLoadingModels ? "Loading..." : "Unavailable")}
               </span>
               {selectedTool ? <span className="truncate">Tool {selectedTool}</span> : null}
+              {attachedNote ? (
+                <span className="truncate">
+                  Note {attachedNote.title}
+                </span>
+              ) : null}
             </div>
           </div>
 
@@ -183,15 +196,28 @@ export function ChatComposer({
             <Button type="button" variant="ghost" size="icon-sm" disabled>
               <Mic data-icon="inline-start" />
             </Button>
-            <Button
-              type="submit"
-              size="icon"
-              className="rounded-full"
-              disabled={!draft.trim() || isSending || !hasAvailableModels}
-              aria-label={isSending ? "Sending message" : "Send message"}
-            >
-              <ArrowUpRight data-icon="inline-start" />
-            </Button>
+            {isStreaming ? (
+              <Button
+                type="button"
+                size="icon"
+                variant="destructive"
+                className="rounded-full"
+                onClick={onStopStreaming}
+                aria-label="Stop generating"
+              >
+                <Square data-icon="inline-start" />
+              </Button>
+            ) : (
+              <Button
+                type="submit"
+                size="icon"
+                className="rounded-full"
+                disabled={!draft.trim() || isSending || !hasAvailableModels}
+                aria-label={isSending ? "Sending message" : "Send message"}
+              >
+                <ArrowUpRight data-icon="inline-start" />
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -217,6 +243,29 @@ export function ChatComposer({
               <AlertDescription>{composerNotice}</AlertDescription>
             </Alert>
           ) : null}
+        </div>
+      ) : null}
+
+      {attachedNote ? (
+        <div className="flex items-center justify-between gap-3 rounded-lg border bg-background px-3 py-2">
+          <div className="min-w-0">
+            <div className="truncate text-sm font-medium">
+              {isUpdatingAttachedNote ? "Updating note context..." : attachedNote.title}
+            </div>
+            <div className="truncate text-xs text-muted-foreground">
+              Attached note context stays active for this thread.
+            </div>
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => void onRemoveAttachedNote?.()}
+            disabled={isUpdatingAttachedNote}
+            aria-label="Remove attached note"
+          >
+            <X className="size-4" />
+          </Button>
         </div>
       ) : null}
 
