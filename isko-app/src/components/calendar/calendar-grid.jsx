@@ -42,9 +42,15 @@ export function CalendarGrid({
               onClick={() => onSelectDate(date, dayEvents[0]?.id ?? null)}
             >
               <div className="flex items-center justify-between gap-2">
-                <span className={cn("text-sm", isToday && "font-medium")}>
-                  {date.getDate()}
-                </span>
+                {isToday ? (
+                  <div className="flex items-center justify-center w-6 h-6 rounded-full bg-red-500 text-white text-sm font-medium">
+                    {date.getDate()}
+                  </div>
+                ) : (
+                  <span className="text-sm">
+                    {date.getDate()}
+                  </span>
+                )}
                 {dayEvents.length ? (
                   <span className="text-xs text-muted-foreground">
                     {dayEvents.length}
