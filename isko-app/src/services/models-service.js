@@ -16,6 +16,11 @@ export const defaultChatModels = [
     label: "Google Gemma 4 26B A4B (Free)",
     provider: "openrouter",
   },
+  {
+    key: "openai/gpt-oss-20b:free",
+    label: "OpenAI GPT-OSS 20B (Free)",
+    provider: "openrouter",
+  },
 ]
 
 function isMissingRelationError(error) {

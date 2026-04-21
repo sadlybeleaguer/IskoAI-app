@@ -1,3 +1,5 @@
+import { useRef } from "react"
+
 import {
   ArrowUpRight,
   BrainCircuit,
@@ -13,6 +15,7 @@ import {
   X,
 } from "lucide-react"
 
+import { ChatFileAttachments } from "@/components/chat/chat-file-attachments"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
@@ -27,6 +30,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Textarea } from "@/components/ui/textarea"
+import { acceptedChatFileInputAccept } from "@/services/chat-files-service"
 import { starterPrompts, suggestedPrompts } from "@/utils/chat"
 import { cn } from "@/utils/cn"
 
@@ -89,27 +93,34 @@ export function ChatModelMenu({
 
 export function ChatComposer({
   attachedNote,
+  attachedFiles = [],
   composerNotice,
   draft,
   isEmptyState = false,
+  isLoadingAttachedFiles = false,
   isLoadingModels = false,
+  isUploadingFiles = false,
   isUpdatingAttachedNote = false,
   isSending,
   hasAvailableModels = true,
   modelStatusMessage = "",
+  onAttachFiles,
   onOpenNotePicker,
-  onComposerNotice,
   onKeyDown,
   onPromptClick,
+  onRemoveAttachedFile,
   onRemoveAttachedNote,
   onStopStreaming,
   onSubmit,
   isStreaming = false,
+  removingFileId = "",
   selectedModelLabel,
   selectedTool,
   setDraft,
   setSelectedTool,
 }) {
+  const fileInputRef = useRef(null)
+
   return (
     <form
       className={cn(
@@ -118,6 +129,23 @@ export function ChatComposer({
       )}
       onSubmit={onSubmit}
     >
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        className="hidden"
+        accept={acceptedChatFileInputAccept}
+        onChange={(event) => {
+          const nextFiles = Array.from(event.target.files ?? [])
+
+          if (nextFiles.length) {
+            void onAttachFiles?.(nextFiles)
+          }
+
+          event.target.value = ""
+        }}
+      />
+
       <div className="overflow-hidden rounded-lg border bg-background shadow-[0_1px_2px_rgba(15,23,42,0.08)]">
         <Textarea
           value={draft}
@@ -142,9 +170,12 @@ export function ChatComposer({
                   <DropdownMenuLabel>Attach</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuGroup>
-                    <DropdownMenuItem onSelect={() => onComposerNotice("Upload files is not connected yet.")}>
+                    <DropdownMenuItem
+                      onSelect={() => fileInputRef.current?.click()}
+                      disabled={isUploadingFiles}
+                    >
                       <Paperclip data-icon="inline-start" />
-                      Upload files
+                      {isUploadingFiles ? "Uploading files..." : "Upload files"}
                     </DropdownMenuItem>
                     <DropdownMenuItem onSelect={onOpenNotePicker}>
                       <FileText data-icon="inline-start" />
@@ -184,6 +215,11 @@ export function ChatComposer({
                 Model {selectedModelLabel || (isLoadingModels ? "Loading..." : "Unavailable")}
               </span>
               {selectedTool ? <span className="truncate">Tool {selectedTool}</span> : null}
+              {attachedFiles.length ? (
+                <span className="truncate">
+                  Files {attachedFiles.length}
+                </span>
+              ) : null}
               {attachedNote ? (
                 <span className="truncate">
                   Note {attachedNote.title}
@@ -267,6 +303,15 @@ export function ChatComposer({
             <X className="size-4" />
           </Button>
         </div>
+      ) : null}
+
+      {attachedFiles.length ? (
+        <ChatFileAttachments
+          files={attachedFiles}
+          onRemove={onRemoveAttachedFile}
+          removingFileId={removingFileId}
+          title={isLoadingAttachedFiles ? "Loading files..." : "Attached files"}
+        />
       ) : null}
 
       {isEmptyState ? (

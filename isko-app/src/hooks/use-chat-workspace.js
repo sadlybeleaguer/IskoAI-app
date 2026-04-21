@@ -10,6 +10,12 @@ import {
   updateChatThreadAttachment,
   updateChatThreadTool,
 } from "@/services/chat-service"
+import {
+  listChatThreadFiles,
+  removeChatFileAttachment,
+  uploadChatFileAttachment,
+  validateChatFiles,
+} from "@/services/chat-files-service"
 import { streamAssistantReply } from "@/services/ai-service"
 import {
   defaultChatModels,
@@ -70,12 +76,16 @@ export function useChatWorkspace(userId, preferredThreadId = null) {
   const [selectedModelKey, setSelectedModelKey] = useState(defaultChatModels[0]?.key ?? "")
   const [selectedTool, setSelectedTool] = useState("")
   const [attachedNote, setAttachedNote] = useState(null)
+  const [attachedFiles, setAttachedFiles] = useState([])
   const [availableNotes, setAvailableNotes] = useState([])
+  const [isLoadingAttachedFiles, setIsLoadingAttachedFiles] = useState(false)
   const [isLoadingAvailableNotes, setIsLoadingAvailableNotes] = useState(false)
   const [isNotePickerOpen, setIsNotePickerOpen] = useState(false)
+  const [isUploadingFiles, setIsUploadingFiles] = useState(false)
   const [isUpdatingAttachedNote, setIsUpdatingAttachedNote] = useState(false)
   const [deletingThreadId, setDeletingThreadId] = useState("")
   const [composerNotice, setComposerNotice] = useState("")
+  const [removingFileId, setRemovingFileId] = useState("")
   const [streamingThreadId, setStreamingThreadId] = useState("")
   const [streamingMessageId, setStreamingMessageId] = useState("")
   const endOfMessagesRef = useRef(null)
@@ -192,11 +202,52 @@ export function useChatWorkspace(userId, preferredThreadId = null) {
       return
     }
 
+    setAttachedFiles([])
+    setIsLoadingAttachedFiles(false)
     setAvailableNotes([])
     setIsLoadingAvailableNotes(false)
+    setIsUploadingFiles(false)
     setIsNotePickerOpen(false)
     setAttachedNote(null)
+    setRemovingFileId("")
   }, [userId])
+
+  useEffect(() => {
+    if (!activeThreadId || !userId) {
+      setAttachedFiles([])
+      setIsLoadingAttachedFiles(false)
+      return undefined
+    }
+
+    let isMounted = true
+
+    const loadThreadFiles = async () => {
+      setIsLoadingAttachedFiles(true)
+
+      try {
+        const nextFiles = await listChatThreadFiles(userId, activeThreadId)
+
+        if (isMounted) {
+          setAttachedFiles(nextFiles)
+        }
+      } catch (error) {
+        if (isMounted) {
+          setAttachedFiles([])
+          setPageError(getErrorMessage(error))
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingAttachedFiles(false)
+        }
+      }
+    }
+
+    void loadThreadFiles()
+
+    return () => {
+      isMounted = false
+    }
+  }, [activeThreadId, userId])
 
   const loadThreads = useCallback(async () => {
     if (!userId) {
@@ -403,16 +454,191 @@ export function useChatWorkspace(userId, preferredThreadId = null) {
     await pendingUpdate.catch(() => undefined)
   }, [])
 
+  const ensureActiveThreadRecord = useCallback(
+    async (fallbackTitle = "Attached file") => {
+      if (activeThread) {
+        return activeThread
+      }
+
+      if (!userId) {
+        throw new Error("You must be signed in to manage chat files.")
+      }
+
+      const threadRecord = await createChatThread({
+        attachedNoteId: attachedNote?.id ?? null,
+        selectedTool,
+        userId,
+        title: getThreadTitle(draft.trim() || fallbackTitle),
+      })
+
+      upsertThreadState(threadRecord)
+      activeThreadIdRef.current = threadRecord.id
+      setActiveThreadId(threadRecord.id)
+      setMessages([])
+      setAttachedFiles([])
+
+      return threadRecord
+    },
+    [activeThread, attachedNote, draft, selectedTool, upsertThreadState, userId],
+  )
+
+  const handleAttachFiles = useCallback(
+    async (files) => {
+      if (!userId) {
+        setComposerNotice("You must be signed in to upload files.")
+        return
+      }
+
+      let nextFiles
+
+      try {
+        nextFiles = validateChatFiles(files)
+      } catch (error) {
+        setComposerNotice(getErrorMessage(error))
+        return
+      }
+
+      setPageError("")
+      setComposerNotice("")
+
+      let threadRecord
+
+      try {
+        threadRecord = await ensureActiveThreadRecord(nextFiles[0]?.name || "Attached file")
+      } catch (error) {
+        setPageError(getErrorMessage(error))
+        return
+      }
+
+      setIsUploadingFiles(true)
+
+      let uploadedCount = 0
+      let failedCount = 0
+
+      for (const file of nextFiles) {
+        const tempId = `upload-${crypto.randomUUID()}`
+        const tempAttachment = {
+          created_at: new Date().toISOString(),
+          error_message: "",
+          id: tempId,
+          mime_type: file.type || "",
+          original_name: file.name,
+          size_bytes: file.size,
+          status: "uploading",
+          thread_id: threadRecord.id,
+          updated_at: new Date().toISOString(),
+          user_id: userId,
+        }
+
+        if (activeThreadIdRef.current === threadRecord.id) {
+          setAttachedFiles((currentFiles) => [...currentFiles, tempAttachment])
+        }
+
+        try {
+          const uploadedAttachment = await uploadChatFileAttachment({
+            file,
+            threadId: threadRecord.id,
+          })
+
+          uploadedCount += 1
+          upsertThreadState(threadRecord, new Date().toISOString())
+
+          if (activeThreadIdRef.current === threadRecord.id) {
+            setAttachedFiles((currentFiles) =>
+              currentFiles.map((currentFile) =>
+                currentFile.id === tempId ? uploadedAttachment : currentFile,
+              ),
+            )
+          }
+        } catch (error) {
+          failedCount += 1
+
+          if (activeThreadIdRef.current === threadRecord.id) {
+            setAttachedFiles((currentFiles) =>
+              currentFiles.map((currentFile) =>
+                currentFile.id === tempId
+                  ? {
+                      ...currentFile,
+                      error_message: getErrorMessage(error),
+                      status: "failed",
+                    }
+                  : currentFile,
+              ),
+            )
+          }
+        }
+      }
+
+      setIsUploadingFiles(false)
+
+      if (uploadedCount && failedCount) {
+        setComposerNotice(
+          `${uploadedCount} file${uploadedCount === 1 ? "" : "s"} attached. ${failedCount} failed.`,
+        )
+        return
+      }
+
+      if (uploadedCount) {
+        setComposerNotice(
+          `${uploadedCount} file${uploadedCount === 1 ? "" : "s"} attached to this thread.`,
+        )
+        return
+      }
+
+      setComposerNotice("No files were attached.")
+    },
+    [ensureActiveThreadRecord, setComposerNotice, upsertThreadState, userId],
+  )
+
+  const handleRemoveAttachedFile = useCallback(
+    async (file) => {
+      if (!file?.id) {
+        return
+      }
+
+      if (file.id.startsWith("upload-")) {
+        setAttachedFiles((currentFiles) =>
+          currentFiles.filter((currentFile) => currentFile.id !== file.id),
+        )
+        return
+      }
+
+      setRemovingFileId(file.id)
+      setPageError("")
+
+      try {
+        await removeChatFileAttachment({ fileId: file.id })
+
+        setAttachedFiles((currentFiles) =>
+          currentFiles.filter((currentFile) => currentFile.id !== file.id),
+        )
+        if (activeThread) {
+          upsertThreadState(activeThread, new Date().toISOString())
+        }
+        setComposerNotice(`${file.original_name} removed from this thread.`)
+      } catch (error) {
+        setPageError(getErrorMessage(error))
+      } finally {
+        setRemovingFileId((currentFileId) =>
+          currentFileId === file.id ? "" : currentFileId,
+        )
+      }
+    },
+    [activeThread, upsertThreadState],
+  )
+
   const createNewChat = () => {
     if (isSending) {
       stopStreaming()
     }
 
     setActiveThreadId(null)
+    setAttachedFiles([])
     setMessages([])
     setDraft("")
     setAttachedNote(null)
     setComposerNotice("")
+    setRemovingFileId("")
     setIsNotePickerOpen(false)
     setSelectedTool("")
   }
@@ -423,6 +649,7 @@ export function useChatWorkspace(userId, preferredThreadId = null) {
     }
 
     setActiveThreadId(threadId)
+    setAttachedFiles([])
     setComposerNotice("")
     setIsNotePickerOpen(false)
   }
@@ -455,9 +682,11 @@ export function useChatWorkspace(userId, preferredThreadId = null) {
         if (isDeletingActiveThread) {
           activeThreadIdRef.current = null
           setActiveThreadId(null)
+          setAttachedFiles([])
           setMessages([])
           setAttachedNote(null)
           setComposerNotice("")
+          setRemovingFileId("")
           setIsNotePickerOpen(false)
           setSelectedTool("")
         }
@@ -813,8 +1042,10 @@ export function useChatWorkspace(userId, preferredThreadId = null) {
     activeThread,
     activeThreadId,
     attachedNote,
+    attachedFiles,
     availableNotes,
     availableModels,
+    attachFiles: handleAttachFiles,
     closeNotePicker,
     composerNotice,
     createNewChat,
@@ -825,6 +1056,7 @@ export function useChatWorkspace(userId, preferredThreadId = null) {
     groupedThreads,
     handleComposerKeyDown,
     hasAvailableModels,
+    isLoadingAttachedFiles,
     isLoadingAvailableNotes,
     isLoadingMessages,
     isLoadingModels,
@@ -832,11 +1064,14 @@ export function useChatWorkspace(userId, preferredThreadId = null) {
     isNotePickerOpen,
     isSending,
     isStreamingActiveThread,
+    isUploadingFiles,
     isUpdatingAttachedNote,
     messages,
     modelsError,
     openNotePicker,
     pageError,
+    removeAttachedFile: handleRemoveAttachedFile,
+    removingFileId,
     selectedModelKey,
     selectedModelLabel: selectedModel?.label ?? "",
     selectedTool,

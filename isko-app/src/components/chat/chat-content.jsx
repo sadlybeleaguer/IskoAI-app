@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { MessageSquarePlus, Sparkles } from "lucide-react"
 
+import { ChatFileAttachments } from "@/components/chat/chat-file-attachments"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/utils/cn"
 
@@ -43,10 +44,13 @@ function AssistantStreamingStatus() {
 
 export function ChatThreadView({
   activeThread,
+  attachedFiles = [],
   endOfMessagesRef,
   isLoadingMessages,
   messages,
   onNewChat,
+  onRemoveAttachedFile,
+  removingFileId = "",
   streamingMessageId,
 }) {
   return (
@@ -61,6 +65,11 @@ export function ChatThreadView({
                 Note {activeThread.attached_note_title}
               </span>
             ) : null}
+            {attachedFiles.length ? (
+              <span className="truncate">
+                Files {attachedFiles.length}
+              </span>
+            ) : null}
           </div>
         </div>
         <Button
@@ -73,6 +82,14 @@ export function ChatThreadView({
           New chat
         </Button>
       </div>
+
+      {attachedFiles.length ? (
+        <ChatFileAttachments
+          files={attachedFiles}
+          onRemove={onRemoveAttachedFile}
+          removingFileId={removingFileId}
+        />
+      ) : null}
 
       {isLoadingMessages ? (
         <p className="text-sm text-muted-foreground">Loading conversation...</p>

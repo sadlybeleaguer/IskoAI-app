@@ -14,6 +14,8 @@ const PLACEHOLDER_API_KEY_VALUES = new Set([
   "your_api_key",
   "changeme",
 ])
+const MAX_ATTACHED_FILE_CONTEXT_CHARACTERS = 30000
+const MAX_ATTACHED_FILE_CONTEXT_PER_FILE = 12000
 const SUPPORTED_PROVIDERS = new Set([
   DEFAULT_PROVIDER,
   OPENROUTER_PROVIDER,
@@ -57,6 +59,11 @@ type ChatModelConfig = {
 type AttachedNoteContext = {
   content: string
   title: string
+}
+
+type AttachedFileContext = {
+  content: string
+  name: string
 }
 
 class HttpError extends Error {
@@ -161,6 +168,16 @@ function isMissingThreadAttachmentSchemaError(error: { code?: string; message?: 
     error?.code === "PGRST204" ||
     error?.code === "PGRST205" ||
     /column .*attached_note_(id|title).* does not exist|could not find the table|relation .* does not exist/i.test(
+      error?.message ?? "",
+    )
+  )
+}
+
+function isMissingThreadFileSchemaError(error: { code?: string; message?: string } | null) {
+  return (
+    error?.code === "PGRST204" ||
+    error?.code === "PGRST205" ||
+    /relation .*chat_thread_files.* does not exist|column .*error_message.* does not exist|could not find the table/i.test(
       error?.message ?? "",
     )
   )
@@ -482,6 +499,55 @@ async function resolveAttachedNoteContext(
   }
 }
 
+async function resolveAttachedFileContexts(
+  supabase: SupabaseClient,
+  threadId: string,
+): Promise<AttachedFileContext[]> {
+  const { data, error } = await supabase
+    .from("chat_thread_files")
+    .select("original_name, extracted_text")
+    .eq("thread_id", threadId)
+    .eq("status", "ready")
+    .order("created_at", { ascending: true })
+    .returns<Array<{ extracted_text: string; original_name: string }>>()
+
+  if (error) {
+    if (isMissingThreadFileSchemaError(error)) {
+      return []
+    }
+
+    throw new HttpError(500, error.message)
+  }
+
+  let remainingCharacters = MAX_ATTACHED_FILE_CONTEXT_CHARACTERS
+  const attachedFiles: AttachedFileContext[] = []
+
+  for (const file of data ?? []) {
+    if (remainingCharacters <= 0) {
+      break
+    }
+
+    const content = (file.extracted_text ?? "").trim()
+
+    if (!content) {
+      continue
+    }
+
+    const truncatedContent = content.slice(
+      0,
+      Math.min(MAX_ATTACHED_FILE_CONTEXT_PER_FILE, remainingCharacters),
+    )
+
+    attachedFiles.push({
+      content: truncatedContent,
+      name: file.original_name?.trim() || "Untitled file",
+    })
+    remainingCharacters -= truncatedContent.length
+  }
+
+  return attachedFiles
+}
+
 function buildAttachedNoteInstruction(attachedNoteContext: AttachedNoteContext | null) {
   if (!attachedNoteContext) {
     return ""
@@ -498,9 +564,27 @@ function buildAttachedNoteInstruction(attachedNoteContext: AttachedNoteContext |
   ].join("\n\n")
 }
 
+function buildAttachedFileInstruction(attachedFileContexts: AttachedFileContext[]) {
+  if (!attachedFileContexts.length) {
+    return ""
+  }
+
+  return [
+    `Attached files available: ${attachedFileContexts.map((file) => file.name).join(", ")}.`,
+    "You can read extracted text from the attached files in this request.",
+    "Use attached file content when it is relevant to the user's request.",
+    "Do not say that you cannot access the user's uploaded files when attached file content is provided below.",
+    ...attachedFileContexts.flatMap((file) => [
+      `Attached file: ${file.name}`,
+      file.content,
+    ]),
+  ].join("\n\n")
+}
+
 function buildRequestContextBlock(
   selectedTool: string,
   attachedNoteContext: AttachedNoteContext | null,
+  attachedFileContexts: AttachedFileContext[],
 ) {
   const sections = [
     "The following thread context is real application data provided with this request.",
@@ -517,6 +601,17 @@ function buildRequestContextBlock(
     sections.push(attachedNoteContext.content)
   }
 
+  if (attachedFileContexts.length) {
+    sections.push(
+      `Attached files: ${attachedFileContexts.map((file) => file.name).join(", ")}`,
+    )
+
+    for (const file of attachedFileContexts) {
+      sections.push(`Attached file: ${file.name}`)
+      sections.push(file.content)
+    }
+  }
+
   if (sections.length <= 2) {
     return ""
   }
@@ -528,8 +623,13 @@ function injectRequestContext(
   messages: NormalizedMessage[],
   selectedTool: string,
   attachedNoteContext: AttachedNoteContext | null,
+  attachedFileContexts: AttachedFileContext[],
 ) {
-  const contextBlock = buildRequestContextBlock(selectedTool, attachedNoteContext)
+  const contextBlock = buildRequestContextBlock(
+    selectedTool,
+    attachedNoteContext,
+    attachedFileContexts,
+  )
 
   if (!contextBlock) {
     return messages
@@ -722,16 +822,19 @@ async function createOpenAICompatibleStream(
   messages: NormalizedMessage[],
   selectedTool: string,
   attachedNoteContext: AttachedNoteContext | null,
+  attachedFileContexts: AttachedFileContext[],
 ) {
   const upstreamConversation = injectRequestContext(
     messages,
     selectedTool,
     attachedNoteContext,
+    attachedFileContexts,
   )
   const systemMessages = [
     config.systemPrompt,
     getToolInstruction(selectedTool),
     buildAttachedNoteInstruction(attachedNoteContext),
+    buildAttachedFileInstruction(attachedFileContexts),
   ]
     .filter(Boolean)
     .map((content) => ({
@@ -882,6 +985,7 @@ Deno.serve(async (request: Request) => {
     const providerConfig = getProviderConfig(modelConfig.provider)
     const latestUserPrompt = getLatestUserPrompt(messages)
     const attachedNoteContext = await resolveAttachedNoteContext(supabase, threadId)
+    const attachedFileContexts = await resolveAttachedFileContexts(supabase, threadId)
 
     const body = isPlaceholderMode(providerConfig)
       ? createPlaceholderStream(providerConfig, modelConfig.key, latestUserPrompt)
@@ -891,6 +995,7 @@ Deno.serve(async (request: Request) => {
           messages,
           selectedTool,
           attachedNoteContext,
+          attachedFileContexts,
         )
 
     return streamResponse(body)

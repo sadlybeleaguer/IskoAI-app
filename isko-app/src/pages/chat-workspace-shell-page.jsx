@@ -19,6 +19,8 @@ export function ChatWorkspaceShellPage() {
     activeThread,
     activeThreadId,
     attachedNote,
+    attachedFiles,
+    attachFiles,
     availableNotes,
     availableModels,
     closeNotePicker,
@@ -38,15 +40,18 @@ export function ChatWorkspaceShellPage() {
     modelsError,
     pageError,
     hasAvailableModels,
+    isLoadingAttachedFiles,
     isLoadingAvailableNotes,
     isLoadingModels,
     selectedModelKey,
     selectedModelLabel,
     selectedTool,
     isNotePickerOpen,
+    isUploadingFiles,
     selectThread,
+    removeAttachedFile,
+    removingFileId,
     sendMessage,
-    setComposerNotice,
     setAttachedNote,
     setDraft,
     setSelectedModelKey,
@@ -137,10 +142,13 @@ export function ChatWorkspaceShellPage() {
               <ScrollArea className="h-full">
                 <ChatThreadView
                   activeThread={activeThread}
+                  attachedFiles={attachedFiles}
                   endOfMessagesRef={endOfMessagesRef}
                   isLoadingMessages={isLoadingMessages}
                   messages={messages}
                   onNewChat={handleCreateNewChat}
+                  onRemoveAttachedFile={removeAttachedFile}
+                  removingFileId={removingFileId}
                   streamingMessageId={streamingMessageId}
                 />
               </ScrollArea>
@@ -150,21 +158,26 @@ export function ChatWorkspaceShellPage() {
               <div className="mx-auto w-full max-w-5xl px-4 py-4 sm:px-6 lg:px-8">
                 <ChatComposer
                   attachedNote={attachedNote}
+                  attachedFiles={attachedFiles}
                   composerNotice={composerNotice}
                   draft={draft}
                   isLoadingModels={isLoadingModels}
+                  isLoadingAttachedFiles={isLoadingAttachedFiles}
+                  isUploadingFiles={isUploadingFiles}
                   isUpdatingAttachedNote={isUpdatingAttachedNote}
                   isSending={isSending}
                   isStreaming={isStreamingActiveThread}
                   hasAvailableModels={hasAvailableModels}
                   modelStatusMessage={modelStatusMessage}
+                  onAttachFiles={attachFiles}
                   onOpenNotePicker={openNotePicker}
-                  onComposerNotice={setComposerNotice}
                   onKeyDown={handleComposerKeyDown}
                   onPromptClick={setDraft}
+                  onRemoveAttachedFile={removeAttachedFile}
                   onRemoveAttachedNote={() => setAttachedNote(null)}
                   onStopStreaming={stopStreaming}
                   onSubmit={sendMessage}
+                  removingFileId={removingFileId}
                   selectedModelLabel={selectedModelLabel}
                   selectedTool={selectedTool}
                   setDraft={setDraft}
@@ -179,22 +192,27 @@ export function ChatWorkspaceShellPage() {
               <ChatEmptyState selectedModelLabel={selectedModelLabel}>
                 <ChatComposer
                   attachedNote={attachedNote}
+                  attachedFiles={attachedFiles}
                   composerNotice={composerNotice}
                   draft={draft}
                   isEmptyState
                   isLoadingModels={isLoadingModels}
+                  isLoadingAttachedFiles={isLoadingAttachedFiles}
+                  isUploadingFiles={isUploadingFiles}
                   isUpdatingAttachedNote={isUpdatingAttachedNote}
                   isSending={isSending}
                   isStreaming={isStreamingActiveThread}
                   hasAvailableModels={hasAvailableModels}
                   modelStatusMessage={modelStatusMessage}
+                  onAttachFiles={attachFiles}
                   onOpenNotePicker={openNotePicker}
-                  onComposerNotice={setComposerNotice}
                   onKeyDown={handleComposerKeyDown}
                   onPromptClick={setDraft}
+                  onRemoveAttachedFile={removeAttachedFile}
                   onRemoveAttachedNote={() => setAttachedNote(null)}
                   onStopStreaming={stopStreaming}
                   onSubmit={sendMessage}
+                  removingFileId={removingFileId}
                   selectedModelLabel={selectedModelLabel}
                   selectedTool={selectedTool}
                   setDraft={setDraft}
