@@ -46,6 +46,7 @@ export function ChatThreadView({
   activeThread,
   attachedFiles = [],
   endOfMessagesRef,
+  isEphemeral = false,
   isLoadingMessages,
   messages,
   onNewChat,
@@ -59,7 +60,7 @@ export function ChatThreadView({
         <div className="min-w-0">
           <p className="truncate text-sm font-medium">{activeThread.title}</p>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-            <span>Saved thread</span>
+            <span>{isEphemeral ? "Temporary session" : "Saved thread"}</span>
             {activeThread.attached_note_title ? (
               <span className="truncate">
                 Note {activeThread.attached_note_title}

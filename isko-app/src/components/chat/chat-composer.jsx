@@ -97,6 +97,7 @@ export function ChatComposer({
   composerNotice,
   draft,
   isEmptyState = false,
+  isEphemeral = false,
   isLoadingAttachedFiles = false,
   isLoadingModels = false,
   isUploadingFiles = false,
@@ -111,6 +112,7 @@ export function ChatComposer({
   onRemoveAttachedFile,
   onRemoveAttachedNote,
   onStopStreaming,
+  onToggleEphemeral,
   onSubmit,
   isStreaming = false,
   removingFileId = "",
@@ -151,7 +153,13 @@ export function ChatComposer({
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={onKeyDown}
-          placeholder={isEmptyState ? "How can I help you today?" : "Message IskoAI"}
+          placeholder={
+            isEmptyState
+              ? isEphemeral
+                ? "Start a temporary chat..."
+                : "How can I help you today?"
+              : "Message IskoAI"
+          }
           className={cn(
             "resize-none border-0 px-5 py-4 shadow-none focus-visible:ring-0",
             isEmptyState ? "min-h-28" : "min-h-24",
@@ -162,7 +170,13 @@ export function ChatComposer({
             <div className="flex items-center gap-1 text-muted-foreground">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button type="button" variant="ghost" size="icon-sm" aria-label="More actions">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label="More actions"
+                    disabled={isEphemeral}
+                  >
                     <Plus data-icon="inline-start" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -214,17 +228,23 @@ export function ChatComposer({
               <span className="truncate">
                 Model {selectedModelLabel || (isLoadingModels ? "Loading..." : "Unavailable")}
               </span>
-              {selectedTool ? <span className="truncate">Tool {selectedTool}</span> : null}
-              {attachedFiles.length ? (
-                <span className="truncate">
-                  Files {attachedFiles.length}
-                </span>
-              ) : null}
-              {attachedNote ? (
-                <span className="truncate">
-                  Note {attachedNote.title}
-                </span>
-              ) : null}
+              {isEphemeral ? (
+                <span className="font-medium text-primary">Temporary Mode</span>
+              ) : (
+                <>
+                  {selectedTool ? <span className="truncate">Tool {selectedTool}</span> : null}
+                  {attachedFiles.length ? (
+                    <span className="truncate">
+                      Files {attachedFiles.length}
+                    </span>
+                  ) : null}
+                  {attachedNote ? (
+                    <span className="truncate">
+                      Note {attachedNote.title}
+                    </span>
+                  ) : null}
+                </>
+              )}
             </div>
           </div>
 

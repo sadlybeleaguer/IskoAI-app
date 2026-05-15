@@ -2,12 +2,20 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import {
   archiveChatThread,
+  createChatFolder,
   createChatMessage,
   createChatThread,
+  deleteChatFolder,
+  deleteChatThreadPermanent,
+  listArchivedChatThreads,
+  listChatFolders,
   listChatMessages,
   listChatThreads,
+  unarchiveChatThread,
+  updateChatFolder,
   updateChatMessage,
   updateChatThreadAttachment,
+  updateChatThreadFolder,
   updateChatThreadTool,
 } from "@/services/chat-service"
 import {
@@ -63,10 +71,14 @@ function isAbortError(error) {
 
 export function useChatWorkspace(userId, preferredThreadId = null) {
   const [threads, setThreads] = useState([])
+  const [folders, setFolders] = useState([])
+  const [archivedThreads, setArchivedThreads] = useState([])
   const [messages, setMessages] = useState([])
   const [activeThreadId, setActiveThreadId] = useState(null)
   const [draft, setDraft] = useState("")
   const [isLoadingThreads, setIsLoadingThreads] = useState(true)
+  const [isLoadingFolders, setIsLoadingFolders] = useState(true)
+  const [isLoadingArchived, setIsLoadingArchived] = useState(false)
   const [isLoadingMessages, setIsLoadingMessages] = useState(false)
   const [isSending, setIsSending] = useState(false)
   const [pageError, setPageError] = useState("")
@@ -83,7 +95,10 @@ export function useChatWorkspace(userId, preferredThreadId = null) {
   const [isNotePickerOpen, setIsNotePickerOpen] = useState(false)
   const [isUploadingFiles, setIsUploadingFiles] = useState(false)
   const [isUpdatingAttachedNote, setIsUpdatingAttachedNote] = useState(false)
+  const [isEphemeral, setIsEphemeral] = useState(false)
   const [deletingThreadId, setDeletingThreadId] = useState("")
+  const [isCreatingFolder, setIsCreatingFolder] = useState(false)
+  const [updatingFolderId, setUpdatingFolderId] = useState("")
   const [composerNotice, setComposerNotice] = useState("")
   const [removingFileId, setRemovingFileId] = useState("")
   const [streamingThreadId, setStreamingThreadId] = useState("")
@@ -95,13 +110,85 @@ export function useChatWorkspace(userId, preferredThreadId = null) {
   const attachmentUpdatePromiseRef = useRef(null)
 
   const activeThread = useMemo(
-    () => threads.find((thread) => thread.id === activeThreadId) ?? null,
-    [activeThreadId, threads],
+    () =>
+      isEphemeral
+        ? { id: activeThreadId, title: "Temporary Chat" }
+        : threads.find((thread) => thread.id === activeThreadId) ??
+          archivedThreads.find((thread) => thread.id === activeThreadId) ??
+          null,
+    [activeThreadId, archivedThreads, isEphemeral, threads],
   )
-  const groupedThreads = useMemo(
-    () => groupThreads(sortThreads(threads)),
+
+  const unfolderedThreads = useMemo(
+    () => threads.filter((thread) => !thread.folder_id),
     [threads],
   )
+
+  const folderThreads = useMemo(() => {
+    const map = new Map()
+    for (const thread of threads) {
+      if (thread.folder_id) {
+        if (!map.has(thread.folder_id)) {
+          map.set(thread.folder_id, [])
+        }
+        map.get(thread.folder_id).push(thread)
+      }
+    }
+    return map
+  }, [threads])
+
+  const groupedThreads = useMemo(
+    () => groupThreads(sortThreads(unfolderedThreads)),
+    [unfolderedThreads],
+  )
+
+  const stopStreaming = useCallback(() => {
+    streamAbortControllerRef.current?.abort()
+  }, [])
+
+  const updateLocalMessage = useCallback((threadId, messageId, updater) => {
+    if (activeThreadIdRef.current !== threadId) {
+      return
+    }
+
+    setMessages((currentMessages) =>
+      currentMessages.map((message) =>
+        message.id === messageId
+          ? {
+              ...message,
+              ...(typeof updater === "function" ? updater(message) : updater),
+            }
+          : message,
+      ),
+    )
+  }, [])
+
+  const replaceLocalMessage = useCallback((threadId, tempId, nextMessage) => {
+    if (activeThreadIdRef.current !== threadId) {
+      return
+    }
+
+    setMessages((currentMessages) =>
+      currentMessages.map((message) =>
+        message.id === tempId
+          ? {
+              ...message,
+              ...nextMessage,
+            }
+          : message,
+      ),
+    )
+  }, [])
+
+  const removeLocalMessage = useCallback((threadId, messageId) => {
+    if (activeThreadIdRef.current !== threadId) {
+      return
+    }
+
+    setMessages((currentMessages) =>
+      currentMessages.filter((message) => message.id !== messageId),
+    )
+  }, [])
   const selectedModel = useMemo(
     () =>
       availableModels.find((model) => model.key === selectedModelKey) ??
@@ -285,9 +372,198 @@ export function useChatWorkspace(userId, preferredThreadId = null) {
     }
   }, [preferredThreadId, userId])
 
+  const loadFolders = useCallback(async () => {
+    if (!userId) {
+      setFolders([])
+      setIsLoadingFolders(false)
+      return
+    }
+
+    setIsLoadingFolders(true)
+
+    try {
+      const nextFolders = await listChatFolders(userId)
+      setFolders(nextFolders)
+    } catch (error) {
+      setFolders([])
+      setPageError(getErrorMessage(error))
+    } finally {
+      setIsLoadingFolders(false)
+    }
+  }, [userId])
+
+  const loadArchivedThreads = useCallback(async () => {
+    if (!userId) {
+      setArchivedThreads([])
+      setIsLoadingArchived(false)
+      return
+    }
+
+    setIsLoadingArchived(true)
+
+    try {
+      const nextArchived = await listArchivedChatThreads(userId)
+      setArchivedThreads(nextArchived)
+    } catch (error) {
+      setArchivedThreads([])
+      setPageError(getErrorMessage(error))
+    } finally {
+      setIsLoadingArchived(false)
+    }
+  }, [userId])
+
   useEffect(() => {
     void loadThreads()
-  }, [loadThreads])
+    void loadFolders()
+    void loadArchivedThreads()
+  }, [loadThreads, loadFolders, loadArchivedThreads])
+
+  const handleCreateFolder = useCallback(
+    async (title) => {
+      if (!userId) return
+
+      setIsCreatingFolder(true)
+      try {
+        const nextFolder = await createChatFolder({ title, userId })
+        setFolders((current) => [...current, nextFolder])
+      } catch (error) {
+        setPageError(getErrorMessage(error))
+      } finally {
+        setIsCreatingFolder(false)
+      }
+    },
+    [userId],
+  )
+
+  const handleUpdateFolder = useCallback(
+    async (folderId, title) => {
+      if (!userId) return
+
+      setUpdatingFolderId(folderId)
+      try {
+        const nextFolder = await updateChatFolder({ folderId, title, userId })
+        setFolders((current) =>
+          current.map((f) => (f.id === folderId ? nextFolder : f)),
+        )
+      } catch (error) {
+        setPageError(getErrorMessage(error))
+      } finally {
+        setUpdatingFolderId("")
+      }
+    },
+    [userId],
+  )
+
+  const handleDeleteFolder = useCallback(
+    async (folderId) => {
+      if (!userId) return
+
+      setUpdatingFolderId(folderId)
+      try {
+        await deleteChatFolder({ folderId, userId })
+        setFolders((current) => current.filter((f) => f.id !== folderId))
+        // Threads in this folder are automatically unassigned in service
+        setThreads((current) =>
+          current.map((t) => (t.folder_id === folderId ? { ...t, folder_id: null } : t)),
+        )
+      } catch (error) {
+        setPageError(getErrorMessage(error))
+      } finally {
+        setUpdatingFolderId("")
+      }
+    },
+    [userId],
+  )
+
+  const handleMoveThreadToFolder = useCallback(
+    async (threadId, folderId) => {
+      if (!userId) return
+
+      try {
+        const updatedThread = await updateChatThreadFolder({
+          threadId,
+          folderId,
+          userId,
+        })
+        setThreads((current) =>
+          current.map((t) => (t.id === threadId ? updatedThread : t)),
+        )
+      } catch (error) {
+        setPageError(getErrorMessage(error))
+      }
+    },
+    [userId],
+  )
+
+  const handleArchiveThread = useCallback(
+    async (threadId) => {
+      if (!threadId || !userId) return
+
+      const isArchivingActiveThread = activeThreadIdRef.current === threadId
+      if (isArchivingActiveThread && streamingThreadIdRef.current === threadId) {
+        stopStreaming()
+      }
+
+      setDeletingThreadId(threadId)
+      try {
+        const archived = await archiveChatThread({ threadId, userId })
+        setThreads((current) => current.filter((t) => t.id !== threadId))
+        setArchivedThreads((current) => [archived, ...current])
+
+        if (isArchivingActiveThread) {
+          setActiveThreadId(null)
+          setMessages([])
+          setAttachedFiles([])
+          setAttachedNote(null)
+        }
+      } catch (error) {
+        setPageError(getErrorMessage(error))
+      } finally {
+        setDeletingThreadId("")
+      }
+    },
+    [stopStreaming, userId],
+  )
+
+  const handleRestoreThread = useCallback(
+    async (threadId) => {
+      if (!threadId || !userId) return
+
+      try {
+        const restored = await unarchiveChatThread({ threadId, userId })
+        setArchivedThreads((current) => current.filter((t) => t.id !== threadId))
+        setThreads((current) => [restored, ...current])
+      } catch (error) {
+        setPageError(getErrorMessage(error))
+      }
+    },
+    [userId],
+  )
+
+  const handleDeleteThreadPermanent = useCallback(
+    async (threadId) => {
+      if (!threadId || !userId) return
+
+      setDeletingThreadId(threadId)
+      try {
+        await deleteChatThreadPermanent({ threadId, userId })
+        setArchivedThreads((current) => current.filter((t) => t.id !== threadId))
+        setThreads((current) => current.filter((t) => t.id !== threadId))
+
+        if (activeThreadIdRef.current === threadId) {
+          setActiveThreadId(null)
+          setMessages([])
+          setAttachedFiles([])
+          setAttachedNote(null)
+        }
+      } catch (error) {
+        setPageError(getErrorMessage(error))
+      } finally {
+        setDeletingThreadId("")
+      }
+    },
+    [userId],
+  )
 
   useEffect(() => {
     if (
@@ -374,54 +650,6 @@ export function useChatWorkspace(userId, preferredThreadId = null) {
 
       return sortThreads(mergedThreads)
     })
-  }, [])
-
-  const updateLocalMessage = useCallback((threadId, messageId, updater) => {
-    if (activeThreadIdRef.current !== threadId) {
-      return
-    }
-
-    setMessages((currentMessages) =>
-      currentMessages.map((message) =>
-        message.id === messageId
-          ? {
-              ...message,
-              ...(typeof updater === "function" ? updater(message) : updater),
-            }
-          : message,
-      ),
-    )
-  }, [])
-
-  const replaceLocalMessage = useCallback((threadId, tempId, nextMessage) => {
-    if (activeThreadIdRef.current !== threadId) {
-      return
-    }
-
-    setMessages((currentMessages) =>
-      currentMessages.map((message) =>
-        message.id === tempId
-          ? {
-              ...message,
-              ...nextMessage,
-            }
-          : message,
-      ),
-    )
-  }, [])
-
-  const removeLocalMessage = useCallback((threadId, messageId) => {
-    if (activeThreadIdRef.current !== threadId) {
-      return
-    }
-
-    setMessages((currentMessages) =>
-      currentMessages.filter((message) => message.id !== messageId),
-    )
-  }, [])
-
-  const stopStreaming = useCallback(() => {
-    streamAbortControllerRef.current?.abort()
   }, [])
 
   const loadAvailableNotes = useCallback(async () => {
@@ -641,6 +869,7 @@ export function useChatWorkspace(userId, preferredThreadId = null) {
     setRemovingFileId("")
     setIsNotePickerOpen(false)
     setSelectedTool("")
+    setIsEphemeral(false)
   }
 
   const selectThread = (threadId) => {
@@ -652,54 +881,8 @@ export function useChatWorkspace(userId, preferredThreadId = null) {
     setAttachedFiles([])
     setComposerNotice("")
     setIsNotePickerOpen(false)
+    setIsEphemeral(false)
   }
-
-  const deleteThread = useCallback(
-    async (threadId) => {
-      if (!threadId || !userId) {
-        return
-      }
-
-      const isDeletingActiveThread = activeThreadIdRef.current === threadId
-
-      if (isDeletingActiveThread && streamingThreadIdRef.current === threadId) {
-        stopStreaming()
-      }
-
-      setDeletingThreadId(threadId)
-      setPageError("")
-
-      try {
-        await archiveChatThread({
-          threadId,
-          userId,
-        })
-
-        setThreads((currentThreads) =>
-          currentThreads.filter((thread) => thread.id !== threadId),
-        )
-
-        if (isDeletingActiveThread) {
-          activeThreadIdRef.current = null
-          setActiveThreadId(null)
-          setAttachedFiles([])
-          setMessages([])
-          setAttachedNote(null)
-          setComposerNotice("")
-          setRemovingFileId("")
-          setIsNotePickerOpen(false)
-          setSelectedTool("")
-        }
-      } catch (error) {
-        setPageError(getErrorMessage(error))
-      } finally {
-        setDeletingThreadId((currentThreadId) =>
-          currentThreadId === threadId ? "" : currentThreadId,
-        )
-      }
-    },
-    [stopStreaming, userId],
-  )
 
   const showComposerNotice = (message) => {
     setComposerNotice(message)
@@ -829,7 +1012,7 @@ export function useChatWorkspace(userId, preferredThreadId = null) {
     }
 
     const persistAssistantContent = async (threadId) => {
-      if (!assistantRecordId || accumulatedAssistantContent === lastPersistedAssistantContent) {
+      if (isEphemeral || !assistantRecordId || accumulatedAssistantContent === lastPersistedAssistantContent) {
         return
       }
 
@@ -871,7 +1054,7 @@ export function useChatWorkspace(userId, preferredThreadId = null) {
     }
 
     const scheduleAssistantPersistence = (threadId) => {
-      if (!assistantRecordId || persistTimeoutId) {
+      if (isEphemeral || !assistantRecordId || persistTimeoutId) {
         return
       }
 
@@ -892,32 +1075,61 @@ export function useChatWorkspace(userId, preferredThreadId = null) {
       let threadRecord = activeThread
 
       if (!threadRecord) {
-        threadRecord = await createChatThread({
-          attachedNoteId: attachedNote?.id ?? null,
-          selectedTool,
-          userId,
-          title: getThreadTitle(content),
-        })
+        if (isEphemeral) {
+          const tempThreadId = crypto.randomUUID()
+          threadRecord = {
+            id: tempThreadId,
+            user_id: userId,
+            title: "Temporary Chat",
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          }
+          activeThreadIdRef.current = tempThreadId
+          setActiveThreadId(tempThreadId)
+          setMessages([])
+        } else {
+          threadRecord = await createChatThread({
+            attachedNoteId: attachedNote?.id ?? null,
+            selectedTool,
+            userId,
+            title: getThreadTitle(content),
+          })
 
-        upsertThreadState(threadRecord)
-        activeThreadIdRef.current = threadRecord.id
-        setActiveThreadId(threadRecord.id)
-        setMessages([])
+          upsertThreadState(threadRecord)
+          activeThreadIdRef.current = threadRecord.id
+          setActiveThreadId(threadRecord.id)
+          setMessages([])
+        }
       }
 
       streamThreadId = threadRecord.id
-      const userMessage = await createChatMessage({
-        threadId: streamThreadId,
-        userId,
-        role: "user",
-        content,
-      })
+      let userMessage
+
+      if (isEphemeral) {
+        userMessage = {
+          id: crypto.randomUUID(),
+          thread_id: streamThreadId,
+          user_id: userId,
+          role: "user",
+          content,
+          created_at: new Date().toISOString(),
+        }
+      } else {
+        userMessage = await createChatMessage({
+          threadId: streamThreadId,
+          userId,
+          role: "user",
+          content,
+        })
+      }
 
       if (activeThreadIdRef.current === streamThreadId || !activeThreadIdRef.current) {
         setMessages((currentMessages) => [...currentMessages, userMessage])
       }
 
-      upsertThreadState(threadRecord, userMessage.created_at)
+      if (!isEphemeral) {
+        upsertThreadState(threadRecord, userMessage.created_at)
+      }
 
       tempAssistantMessageId = `temp-${crypto.randomUUID()}`
       const tempAssistantMessage = {
@@ -962,12 +1174,24 @@ export function useChatWorkspace(userId, preferredThreadId = null) {
               })
 
               if (!assistantRecord) {
-                assistantRecord = await createChatMessage({
-                  threadId: streamThreadId,
-                  userId,
-                  role: "assistant",
-                  content: accumulatedAssistantContent,
-                })
+                if (isEphemeral) {
+                  assistantRecord = {
+                    id: crypto.randomUUID(),
+                    thread_id: streamThreadId,
+                    user_id: userId,
+                    role: "assistant",
+                    content: accumulatedAssistantContent,
+                    created_at: new Date().toISOString(),
+                  }
+                } else {
+                  assistantRecord = await createChatMessage({
+                    threadId: streamThreadId,
+                    userId,
+                    role: "assistant",
+                    content: accumulatedAssistantContent,
+                  })
+                }
+
                 assistantRecordId = assistantRecord.id
                 lastPersistedAssistantContent = assistantRecord.content
 
@@ -977,7 +1201,10 @@ export function useChatWorkspace(userId, preferredThreadId = null) {
                   isStreaming: true,
                 })
                 setStreamingMessageId(assistantRecord.id)
-                upsertThreadState(threadRecord, assistantRecord.created_at)
+
+                if (!isEphemeral) {
+                  upsertThreadState(threadRecord, assistantRecord.created_at)
+                }
                 return
               }
 
@@ -994,8 +1221,15 @@ export function useChatWorkspace(userId, preferredThreadId = null) {
         updateLocalMessage(streamThreadId, assistantRecordId, {
           isStreaming: false,
         })
-      } else {
-        removeLocalMessage(streamThreadId, tempAssistantMessageId)
+      } else if (tempAssistantMessageId) {
+        if (isEphemeral && accumulatedAssistantContent) {
+          updateLocalMessage(streamThreadId, tempAssistantMessageId, {
+            content: accumulatedAssistantContent,
+            isStreaming: false,
+          })
+        } else {
+          removeLocalMessage(streamThreadId, tempAssistantMessageId)
+        }
       }
     } catch (error) {
       clearPersistTimer()
@@ -1010,10 +1244,14 @@ export function useChatWorkspace(userId, preferredThreadId = null) {
           },
         )
       } else if (tempAssistantMessageId) {
-        removeLocalMessage(
-          streamThreadId,
-          tempAssistantMessageId,
-        )
+        if (isEphemeral && accumulatedAssistantContent) {
+          updateLocalMessage(streamThreadId, tempAssistantMessageId, {
+            content: accumulatedAssistantContent,
+            isStreaming: false,
+          })
+        } else {
+          removeLocalMessage(streamThreadId, tempAssistantMessageId)
+        }
       }
 
       if (isAbortError(error)) {
@@ -1041,23 +1279,31 @@ export function useChatWorkspace(userId, preferredThreadId = null) {
   return {
     activeThread,
     activeThreadId,
+    archivedThreads,
     attachedNote,
     attachedFiles,
     availableNotes,
     availableModels,
+    archiveThread: handleArchiveThread,
     attachFiles: handleAttachFiles,
     closeNotePicker,
     composerNotice,
     createNewChat,
-    deleteThread,
+    createFolder: handleCreateFolder,
+    deleteFolder: handleDeleteFolder,
+    deleteThreadPermanent: handleDeleteThreadPermanent,
     deletingThreadId,
     draft,
     endOfMessagesRef,
+    folders,
+    folderThreads,
     groupedThreads,
     handleComposerKeyDown,
     hasAvailableModels,
+    isLoadingArchived,
     isLoadingAttachedFiles,
     isLoadingAvailableNotes,
+    isLoadingFolders,
     isLoadingMessages,
     isLoadingModels,
     isLoadingThreads,
@@ -1066,16 +1312,20 @@ export function useChatWorkspace(userId, preferredThreadId = null) {
     isStreamingActiveThread,
     isUploadingFiles,
     isUpdatingAttachedNote,
+    isEphemeral,
     messages,
     modelsError,
+    moveThreadToFolder: handleMoveThreadToFolder,
     openNotePicker,
     pageError,
     removeAttachedFile: handleRemoveAttachedFile,
     removingFileId,
+    restoreThread: handleRestoreThread,
     selectedModelKey,
     selectedModelLabel: selectedModel?.label ?? "",
     selectedTool,
     setAttachedNote: handleAttachedNoteChange,
+    setIsEphemeral,
     selectThread,
     sendMessage,
     setComposerNotice: showComposerNotice,
@@ -1084,5 +1334,7 @@ export function useChatWorkspace(userId, preferredThreadId = null) {
     setSelectedTool: handleSelectedToolChange,
     stopStreaming,
     streamingMessageId,
+    updateFolder: handleUpdateFolder,
+    updatingFolderId,
   }
 }

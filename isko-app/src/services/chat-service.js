@@ -1,7 +1,9 @@
 import { supabase } from "@/services/supabase"
 
 const threadSelect =
-  "id, user_id, title, selected_tool, attached_note_id, attached_note_title, archived_at, created_at, updated_at"
+  "id, user_id, title, selected_tool, attached_note_id, attached_note_title, folder_id, archived_at, created_at, updated_at"
+const folderSelect =
+  "id, user_id, title, system_prompt, selected_tool, attached_note_id, attached_note_title, archived_at, created_at, updated_at"
 const messageSelect =
   "id, thread_id, user_id, role, content, created_at"
 
@@ -51,6 +53,134 @@ export async function listChatThreads(userId) {
   }
 
   return data ?? []
+}
+
+export async function listArchivedChatThreads(userId) {
+  const client = requireClient()
+
+  const { data, error } = await client
+    .from("chat_threads")
+    .select(threadSelect)
+    .eq("user_id", userId)
+    .not("archived_at", "is", null)
+    .order("archived_at", { ascending: false })
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return data ?? []
+}
+
+export async function listChatFolders(userId) {
+  const client = requireClient()
+
+  const { data, error } = await client
+    .from("chat_folders")
+    .select(folderSelect)
+    .eq("user_id", userId)
+    .is("archived_at", null)
+    .order("created_at", { ascending: true })
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return data ?? []
+}
+
+export async function createChatFolder({
+  title,
+  userId,
+}) {
+  const client = requireClient()
+
+  const { data, error } = await client
+    .from("chat_folders")
+    .insert({
+      title,
+      user_id: userId,
+    })
+    .select(folderSelect)
+    .single()
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return data
+}
+
+export async function updateChatFolder({
+  folderId,
+  title,
+  userId,
+}) {
+  const client = requireClient()
+
+  const { data, error } = await client
+    .from("chat_folders")
+    .update({
+      title,
+    })
+    .eq("id", folderId)
+    .eq("user_id", userId)
+    .select(folderSelect)
+    .single()
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return data
+}
+
+export async function deleteChatFolder({
+  folderId,
+  userId,
+}) {
+  const client = requireClient()
+
+  // First, unassign threads from this folder
+  await client
+    .from("chat_threads")
+    .update({ folder_id: null })
+    .eq("folder_id", folderId)
+    .eq("user_id", userId)
+
+  const { error } = await client
+    .from("chat_folders")
+    .delete()
+    .eq("id", folderId)
+    .eq("user_id", userId)
+
+  if (error) {
+    throw new Error(error.message)
+  }
+}
+
+export async function updateChatThreadFolder({
+  threadId,
+  folderId,
+  userId,
+}) {
+  const client = requireClient()
+
+  const { data, error } = await client
+    .from("chat_threads")
+    .update({
+      folder_id: folderId,
+    })
+    .eq("id", threadId)
+    .eq("user_id", userId)
+    .select(threadSelect)
+    .single()
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return data
 }
 
 export async function listChatMessages(userId, threadId) {
@@ -165,6 +295,46 @@ export async function archiveChatThread({
   }
 
   return data
+}
+
+export async function unarchiveChatThread({
+  threadId,
+  userId,
+}) {
+  const client = requireClient()
+
+  const { data, error } = await client
+    .from("chat_threads")
+    .update({
+      archived_at: null,
+    })
+    .eq("id", threadId)
+    .eq("user_id", userId)
+    .select(threadSelect)
+    .single()
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return data
+}
+
+export async function deleteChatThreadPermanent({
+  threadId,
+  userId,
+}) {
+  const client = requireClient()
+
+  const { error } = await client
+    .from("chat_threads")
+    .delete()
+    .eq("id", threadId)
+    .eq("user_id", userId)
+
+  if (error) {
+    throw new Error(error.message)
+  }
 }
 
 export async function createChatMessage({

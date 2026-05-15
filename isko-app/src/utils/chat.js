@@ -34,7 +34,11 @@ export function getThreadTitle(content) {
 }
 
 export function formatRelativeTime(value) {
-  const elapsedMs = Date.now() - new Date(value).valueOf()
+  if (!value) return ""
+  const date = new Date(value)
+  if (isNaN(date.valueOf())) return ""
+
+  const elapsedMs = Date.now() - date.valueOf()
   const minutes = Math.floor(elapsedMs / 60000)
 
   if (minutes < 1) {
@@ -66,12 +70,14 @@ export function formatRelativeTime(value) {
   return new Intl.DateTimeFormat("en-US", {
     month: "short",
     day: "numeric",
-  }).format(new Date(value))
+  }).format(date)
 }
 
 function getThreadGroupLabel(value) {
   const now = new Date()
   const date = new Date(value)
+  if (isNaN(date.valueOf())) return "Other"
+
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
   const startOfDate = new Date(date.getFullYear(), date.getMonth(), date.getDate())
   const differenceInDays = Math.floor(
