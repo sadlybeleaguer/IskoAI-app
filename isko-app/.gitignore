@@ -29,6 +29,7 @@ supabase/.temp
 
 # Gemini
 .gemini
+.codex
 
 # Environment variables (Critical)
 .env
