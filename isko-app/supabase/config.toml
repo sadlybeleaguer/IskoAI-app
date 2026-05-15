@@ -1,9 +1,0 @@
-[auth.hook.before_user_created]
-enabled = true
-uri = "pg-functions://postgres/public/reject_duplicate_email_signups"
-
-[functions.chat-completions]
-verify_jwt = false
-
-[functions.manage-users]
-verify_jwt = false
