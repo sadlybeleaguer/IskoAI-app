@@ -3,7 +3,6 @@ import { FolderPlus, Archive, ChevronDown, ChevronRight } from "lucide-react"
 
 import { ChatFolderItem } from "./chat-folder-item"
 import { ChatThreadItem } from "./chat-thread-item"
-import { cn } from "@/lib/utils"
 
 export function ChatSidebar({
   activeThreadId,

@@ -10,6 +10,7 @@ import { NotesEditorPage } from "@/pages/notes-page"
 import { AccessDeniedScreen } from "@/components/access-denied-screen"
 import { LoadingScreen } from "@/components/loading-screen"
 import { useAuth } from "@/context/auth-context"
+import LandingPage from "@/pages/landing-page"
 
 // --- Route Components (Guards) ---
 
@@ -95,7 +96,7 @@ function HomeRedirect() {
   }
 
   if (!isConfigured || !session) {
-    return <Navigate to="/sign-in" replace />
+    return <LandingPage />
   }
 
   return <Navigate to={isSuperadmin ? "/dashboard" : "/chat"} replace />
@@ -108,7 +109,7 @@ export function AppRouter() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<HomeRedirect />} />
-        
+
         {/* Guest Routes */}
         <Route element={<GuestOnlyRoute />}>
           <Route path="/sign-in" element={<AuthPage mode="sign-in" />} />

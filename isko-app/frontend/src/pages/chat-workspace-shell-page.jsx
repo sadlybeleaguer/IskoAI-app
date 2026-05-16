@@ -248,7 +248,6 @@ export function ChatWorkspaceShellPage() {
                     onRemoveAttachedFile={removeAttachedFile}
                     onRemoveAttachedNote={() => setAttachedNote(null)}
                     onStopStreaming={stopStreaming}
-                    onToggleEphemeral={handleToggleEphemeral}
                     onSubmit={sendMessage}
                     removingFileId={removingFileId}
                     selectedModelLabel={selectedModelLabel}
@@ -285,7 +284,6 @@ export function ChatWorkspaceShellPage() {
                     onRemoveAttachedFile={removeAttachedFile}
                     onRemoveAttachedNote={() => setAttachedNote(null)}
                     onStopStreaming={stopStreaming}
-                    onToggleEphemeral={handleToggleEphemeral}
                     onSubmit={sendMessage}
                     removingFileId={removingFileId}
                     selectedModelLabel={selectedModelLabel}

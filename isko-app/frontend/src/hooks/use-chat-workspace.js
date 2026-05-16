@@ -93,7 +93,6 @@ export function useChatWorkspace(userId, preferredThreadId = null) {
   const [isUpdatingAttachedNote, setIsUpdatingAttachedNote] = useState(false)
   const [isEphemeral, setIsEphemeral] = useState(false)
   const [deletingThreadId, setDeletingThreadId] = useState("")
-  const [isCreatingFolder, setIsCreatingFolder] = useState(false)
   const [updatingFolderId, setUpdatingFolderId] = useState("")
   const [composerNotice, setComposerNotice] = useState("")
   const [removingFileId, setRemovingFileId] = useState("")
@@ -418,14 +417,11 @@ export function useChatWorkspace(userId, preferredThreadId = null) {
     async (title) => {
       if (!userId) return
 
-      setIsCreatingFolder(true)
       try {
         const nextFolder = await createChatFolder({ title, userId })
         setFolders((current) => [...current, nextFolder])
       } catch (error) {
         setPageError(getErrorMessage(error))
-      } finally {
-        setIsCreatingFolder(false)
       }
     },
     [userId],

@@ -112,7 +112,6 @@ export function ChatComposer({
   onRemoveAttachedFile,
   onRemoveAttachedNote,
   onStopStreaming,
-  onToggleEphemeral,
   onSubmit,
   isStreaming = false,
   removingFileId = "",
