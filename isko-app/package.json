@@ -10,7 +10,15 @@
     "frontend:build": "npm run build --prefix frontend",
     "frontend:preview": "npm run preview --prefix frontend",
     "frontend:lint": "npm run lint --prefix frontend",
-    "backend:serve": "supabase functions serve --project-ref backend/config/config.toml",
-    "db:push": "supabase db push --migrations-dir database/migrations"
+    "supabase:start": "supabase start",
+    "supabase:stop": "supabase stop",
+    "supabase:functions": "supabase functions serve --env-file supabase/functions/.env",
+    "local:dev": "concurrently -k -n functions,frontend -c cyan,green \"npm run supabase:functions\" \"npm run frontend:dev\"",
+    "backend:serve": "npm run supabase:functions",
+    "db:push": "supabase db push"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "supabase": "^2.98.2"
   }
 }
