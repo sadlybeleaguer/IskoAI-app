@@ -10,6 +10,7 @@ import { NotesEditorPage } from "@/pages/notes-page"
 import { AccessDeniedScreen } from "@/components/access-denied-screen"
 import { LoadingScreen } from "@/components/loading-screen"
 import { useAuth } from "@/context/auth-context"
+import LandingPage from "@/pages/landing-page"
 
 // --- Route Components (Guards) ---
 
@@ -107,8 +108,10 @@ export function AppRouter() {
   return (
     <BrowserRouter>
       <Routes>
+        <Route path="/" element={<LandingPage />} />
         <Route path="/" element={<HomeRedirect />} />
         
+
         {/* Guest Routes */}
         <Route element={<GuestOnlyRoute />}>
           <Route path="/sign-in" element={<AuthPage mode="sign-in" />} />
@@ -121,6 +124,7 @@ export function AppRouter() {
           <Route path="/notes" element={<NotesLibraryPage />} />
           <Route path="/notes/:noteId" element={<NotesEditorPage />} />
           <Route path="/calendar" element={<CalendarPage />} />
+          
         </Route>
 
         {/* Admin Only Routes */}

@@ -11,5 +11,16 @@
     "frontend:lint": "npm run lint --prefix frontend",
     "backend:serve": "supabase functions serve --project-ref backend/config/config.toml",
     "db:push": "supabase db push --migrations-dir database/migrations"
+  },
+  "dependencies": {
+    "@vercel/analytics": "^2.0.1",
+    "next": "^16.2.6",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6"
+  },
+  "devDependencies": {
+    "@types/node": "^25.8.0",
+    "@types/react": "^19.2.14",
+    "typescript": "^6.0.3"
   }
 }
