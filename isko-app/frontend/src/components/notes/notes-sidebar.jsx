@@ -1,5 +1,26 @@
 import { cn } from "@/utils/cn"
+import { Skeleton } from "@/components/ui/skeleton"
 import { formatNoteTimestamp, getNotePreview, getNoteTitle } from "@/utils/notes"
+
+function NotesSidebarSkeleton() {
+  return (
+    <div
+      className="grid gap-2 px-3 py-2"
+      role="status"
+      aria-live="polite"
+      aria-label="Loading notes"
+    >
+      <span className="sr-only">Loading notes library...</span>
+      {Array.from({ length: 5 }).map((_, index) => (
+        <div key={index} className="grid gap-2 rounded-lg py-2">
+          <Skeleton className="h-4 w-4/5" />
+          <Skeleton className="h-3 w-full" />
+          <Skeleton className="h-3 w-2/5" />
+        </div>
+      ))}
+    </div>
+  )
+}
 
 export function NotesSidebar({
   activeNoteId,
@@ -10,7 +31,7 @@ export function NotesSidebar({
   return (
     <div className="flex flex-col gap-2">
       {isLoading ? (
-        <p className="px-3 py-2 text-sm text-muted-foreground">Loading notes...</p>
+        <NotesSidebarSkeleton />
       ) : null}
 
       {!isLoading && !notes.length ? (

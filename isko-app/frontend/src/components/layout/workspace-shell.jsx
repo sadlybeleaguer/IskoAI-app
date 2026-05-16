@@ -9,6 +9,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Search,
+  Settings,
   Shield,
   X,
   Brain,
@@ -16,6 +17,7 @@ import {
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { SettingsDialog } from "@/components/settings/settings-dialog"
 import { WorkspaceSearch } from "@/components/layout/workspace-search"
 import { Button } from "@/components/ui/button"
 import {
@@ -77,6 +79,7 @@ export function WorkspaceShell({
   const [isNavOpen, setIsNavOpen] = useState(false)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(getStoredCollapseState)
   const [isSearchOpen, setIsSearchOpen] = useState(false)
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isSigningOut, setIsSigningOut] = useState(false)
   const [signOutError, setSignOutError] = useState("")
   const isChatPage = pageKey === "chat"
@@ -146,18 +149,28 @@ export function WorkspaceShell({
     }
   }
 
-  const LogoBrand = ({ collapsed = false }) => (
-    <div className={cn("flex items-center gap-2", collapsed && "justify-center")}>
+  const LogoBrand = ({ collapsed = false, onToggle }) => (
+    <button
+      type="button"
+      onClick={onToggle}
+      className={cn(
+        "flex items-center gap-2 text-left transition-all duration-200 hover:opacity-80 active:scale-95",
+        collapsed && "justify-center w-full",
+      )}
+      aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+    >
       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary/60 shadow-sm shadow-primary/20">
         <Brain className="h-5 w-5 text-primary-foreground" />
       </div>
       {!collapsed && (
         <div className="min-w-0">
-          <p className="truncate text-base font-bold leading-tight text-foreground">IskoAI</p>
+          <p className="truncate text-base font-bold leading-tight text-foreground">
+            IskoAI
+          </p>
           <p className="truncate text-xs text-muted-foreground">Workspace</p>
         </div>
       )}
-    </div>
+    </button>
   )
 
   const UserAvatar = () => (
@@ -209,6 +222,17 @@ export function WorkspaceShell({
           </>
         ) : null}
         <DropdownMenuGroup>
+          <DropdownMenuItem
+            onSelect={(event) => {
+              event.preventDefault()
+              setIsNavOpen(false)
+              setIsSettingsOpen(true)
+            }}
+            className="rounded-lg text-muted-foreground focus:text-foreground"
+          >
+            <Settings data-icon="inline-start" />
+            Settings
+          </DropdownMenuItem>
           <DropdownMenuItem
             onSelect={(event) => {
               event.preventDefault()
@@ -320,22 +344,12 @@ export function WorkspaceShell({
 
   const renderCollapsedSidebar = () => (
     <div className="flex h-full flex-col items-center border-r border-border/50 bg-gradient-to-b from-sidebar via-sidebar to-muted/20 px-2 py-3">
-      <div className="mb-2 flex items-center justify-center py-1">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary/60 shadow-sm shadow-primary/20">
-          <Brain className="h-5 w-5 text-primary-foreground" />
-        </div>
+      <div className="mb-2 py-1">
+        <LogoBrand
+          collapsed
+          onToggle={() => setIsSidebarCollapsed(false)}
+        />
       </div>
-
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        onClick={() => setIsSidebarCollapsed(false)}
-        aria-label="Expand sidebar"
-        className="size-10 transition-all duration-200 hover:bg-primary/5 hover:text-primary"
-      >
-        <PanelLeftOpen className="h-4 w-4" data-icon="inline-start" />
-      </Button>
 
       {primaryAction ? (
         <div className="mt-3">{renderPrimaryAction(true)}</div>
@@ -358,7 +372,9 @@ export function WorkspaceShell({
   const renderExpandedSidebar = (mobile = false) => (
     <div className="flex h-full flex-col bg-gradient-to-b from-sidebar via-sidebar to-muted/20">
       <div className="flex items-center justify-between px-4 py-4">
-        <LogoBrand />
+        <LogoBrand
+          onToggle={mobile ? undefined : () => setIsSidebarCollapsed(true)}
+        />
         {mobile ? (
           <Button
             type="button"
@@ -474,15 +490,15 @@ export function WorkspaceShell({
     >
       {isChatPage ? (
         <>
-          <aside className="fixed inset-y-0 left-0 z-30 hidden w-[var(--workspace-sidebar-width)] lg:block">
-            <div className="h-svh">
+          <aside className="fixed inset-y-0 left-0 z-30 hidden w-[var(--workspace-sidebar-width)] lg:block overflow-hidden transition-[width] duration-300 ease-in-out">
+            <div className="h-svh border-r border-border/50">
               {isSidebarCollapsed ? renderCollapsedSidebar() : renderExpandedSidebar()}
             </div>
           </aside>
 
           {renderMobileOverlay()}
 
-          <div className="flex h-svh min-w-0 flex-col lg:pl-[var(--workspace-sidebar-width)]">
+          <div className="flex h-svh min-w-0 flex-col transition-[padding] duration-300 ease-in-out lg:pl-[var(--workspace-sidebar-width)]">
             {renderHeader()}
             {shellBanners}
             <main className="flex min-h-0 flex-1 min-w-0 flex-col overflow-hidden">
@@ -491,8 +507,8 @@ export function WorkspaceShell({
           </div>
         </>
       ) : (
-        <div className="grid min-h-screen lg:grid-cols-[var(--workspace-sidebar-width)_minmax(0,1fr)]">
-          <aside className="hidden border-r border-border/50 lg:block">
+        <div className="grid min-h-screen lg:grid-cols-[var(--workspace-sidebar-width)_minmax(0,1fr)] transition-[grid-template-columns] duration-300 ease-in-out">
+          <aside className="hidden border-r border-border/50 lg:block overflow-hidden transition-[width] duration-300 ease-in-out w-[var(--workspace-sidebar-width)]">
             {isSidebarCollapsed ? renderCollapsedSidebar() : renderExpandedSidebar()}
           </aside>
 
@@ -531,6 +547,7 @@ export function WorkspaceShell({
         query={searchQuery}
         setQuery={setSearchQuery}
       />
+      <SettingsDialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen} />
     </div>
   )
 }

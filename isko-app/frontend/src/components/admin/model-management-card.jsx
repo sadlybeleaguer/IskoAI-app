@@ -9,6 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 
 function ModelStatusBadge({ enabled }) {
@@ -52,6 +53,41 @@ function ModelSectionEmptyState({ message }) {
     <div className="px-4 py-8 text-sm text-muted-foreground">
       {message}
     </div>
+  )
+}
+
+function ModelSectionSkeleton({ title }) {
+  return (
+    <section className="overflow-hidden rounded-lg border bg-background" role="status" aria-label={`Loading ${title.toLowerCase()} models`}>
+      <header className="border-b px-4 py-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="grid gap-2">
+            <h2 className="text-sm font-medium text-foreground">{title}</h2>
+            <Skeleton className="h-3 w-40" />
+          </div>
+          <Skeleton className="h-4 w-6" />
+        </div>
+      </header>
+      <div className="divide-y">
+        {Array.from({ length: 3 }).map((_, index) => (
+          <div key={index} className="grid gap-3 px-4 py-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+            <div className="flex items-start gap-3">
+              <Skeleton className="size-8 shrink-0 rounded-md" />
+              <div className="grid min-w-0 flex-1 gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Skeleton className="h-4 w-36" />
+                  <Skeleton className="h-6 w-16 rounded-md" />
+                  <Skeleton className="h-6 w-24 rounded-md" />
+                </div>
+                <Skeleton className="h-3 w-48 max-w-full" />
+                <Skeleton className="h-3 w-32" />
+              </div>
+            </div>
+            <Skeleton className="h-9 w-20 rounded-lg" />
+          </div>
+        ))}
+      </div>
+    </section>
   )
 }
 
@@ -182,15 +218,21 @@ export function ModelManagementCard({
         <dl className="grid gap-2 border-t pt-4 text-sm sm:grid-cols-3">
           <div className="flex items-baseline justify-between gap-4 border-b pb-2 sm:border-b-0 sm:border-r sm:pr-4 sm:pb-0">
             <dt className="text-muted-foreground">Total models</dt>
-            <dd className="font-medium text-foreground">{models.length}</dd>
+            <dd className="font-medium text-foreground">
+              {isLoadingModels ? <Skeleton className="h-4 w-8" /> : models.length}
+            </dd>
           </div>
           <div className="flex items-baseline justify-between gap-4 border-b pb-2 sm:border-b-0 sm:border-r sm:px-4 sm:pb-0">
             <dt className="text-muted-foreground">Enabled</dt>
-            <dd className="font-medium text-foreground">{enabledModels.length}</dd>
+            <dd className="font-medium text-foreground">
+              {isLoadingModels ? <Skeleton className="h-4 w-8" /> : enabledModels.length}
+            </dd>
           </div>
           <div className="flex items-baseline justify-between gap-4 sm:pl-4">
             <dt className="text-muted-foreground">Disabled</dt>
-            <dd className="font-medium text-foreground">{disabledModels.length}</dd>
+            <dd className="font-medium text-foreground">
+              {isLoadingModels ? <Skeleton className="h-4 w-8" /> : disabledModels.length}
+            </dd>
           </div>
         </dl>
       </CardHeader>
@@ -214,19 +256,8 @@ export function ModelManagementCard({
 
         {isLoadingModels ? (
           <div className="grid gap-4 xl:grid-cols-2">
-            <section className="overflow-hidden rounded-lg border bg-background">
-              <header className="border-b px-4 py-3">
-                <h2 className="text-sm font-medium text-foreground">Enabled</h2>
-              </header>
-              <ModelSectionEmptyState message="Loading models..." />
-            </section>
-
-            <section className="overflow-hidden rounded-lg border bg-background">
-              <header className="border-b px-4 py-3">
-                <h2 className="text-sm font-medium text-foreground">Disabled</h2>
-              </header>
-              <ModelSectionEmptyState message="Loading models..." />
-            </section>
+            <ModelSectionSkeleton title="Enabled" />
+            <ModelSectionSkeleton title="Disabled" />
           </div>
         ) : null}
 

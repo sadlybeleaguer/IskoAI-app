@@ -3,6 +3,7 @@ import { MessageSquarePlus, Sparkles } from "lucide-react"
 
 import { ChatFileAttachments } from "@/components/chat/chat-file-attachments"
 import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/utils/cn"
 
 const streamingStatusSteps = ["Thinking", "Working through it", "Finishing up"]
@@ -42,10 +43,41 @@ function AssistantStreamingStatus() {
   )
 }
 
+function ChatMessagesSkeleton() {
+  return (
+    <div
+      className="grid gap-5"
+      role="status"
+      aria-live="polite"
+      aria-label="Loading conversation"
+    >
+      <span className="sr-only">Loading conversation...</span>
+      <div className="flex justify-start">
+        <div className="grid w-full max-w-3xl gap-2">
+          <Skeleton className="h-3 w-20" />
+          <Skeleton className="h-4 w-11/12" />
+          <Skeleton className="h-4 w-8/12" />
+        </div>
+      </div>
+      <div className="flex justify-end">
+        <Skeleton className="h-14 w-3/5 max-w-2xl rounded-[1.35rem]" />
+      </div>
+      <div className="flex justify-start">
+        <div className="grid w-full max-w-3xl gap-2">
+          <Skeleton className="h-4 w-10/12" />
+          <Skeleton className="h-4 w-9/12" />
+          <Skeleton className="h-4 w-6/12" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function ChatThreadView({
   activeThread,
   attachedFiles = [],
   endOfMessagesRef,
+  hasSelectedThreadOnce = false,
   isEphemeral = false,
   isLoadingMessages,
   messages,
@@ -92,9 +124,7 @@ export function ChatThreadView({
         />
       ) : null}
 
-      {isLoadingMessages ? (
-        <p className="text-sm text-muted-foreground">Loading conversation...</p>
-      ) : null}
+      {!hasSelectedThreadOnce && isLoadingMessages ? <ChatMessagesSkeleton /> : null}
 
       {messages.map((message) => {
         const isStreaming = Boolean(

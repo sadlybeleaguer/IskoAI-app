@@ -5,6 +5,7 @@ import {
   MoreHorizontal,
   PanelLeftClose,
   PanelLeftOpen,
+  Settings,
   Users,
   X,
 } from "lucide-react"
@@ -44,6 +45,7 @@ export function AdminSidebar({
   isSigningOut,
   isMobile = false,
   onClose,
+  onOpenSettings,
   onToggleCollapse,
   onSignOut,
   userEmail,
@@ -122,6 +124,16 @@ export function AdminSidebar({
           <DropdownMenuItem
             onSelect={(event) => {
               event.preventDefault()
+              onOpenSettings()
+              onClose?.()
+            }}
+          >
+            <Settings data-icon="inline-start" />
+            Settings
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onSelect={(event) => {
+              event.preventDefault()
               void onSignOut()
             }}
             disabled={isSigningOut}
@@ -134,42 +146,28 @@ export function AdminSidebar({
     </DropdownMenu>
   )
 
-  if (!isMobile && isCollapsed) {
-    return (
-      <div className="flex h-full flex-col items-center bg-sidebar px-2 py-3 text-sidebar-foreground">
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          onClick={onToggleCollapse}
-          aria-label="Expand navigation"
-        >
-          <PanelLeftOpen data-icon="inline-start" />
-        </Button>
-
-        <div className="mt-4 flex flex-col gap-2">
-          {renderNavSection(adminNavItems, true)}
-          <div className="h-px bg-border/70" />
-          {renderNavSection(workspaceNavItems, true)}
-        </div>
-
-        <div className="mt-auto">
-          {renderUserMenu({
-            compact: true,
-            triggerClassName: "size-10 justify-center px-0",
-          })}
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
-      <div className="flex items-center justify-between px-4 py-4">
-        <div className="min-w-0">
-          <p className="truncate text-base font-medium">IskoAI</p>
-          <p className="truncate text-sm text-muted-foreground">Admin</p>
-        </div>
+      <div className={cn("flex items-center justify-between px-4 py-4", isCollapsed && "justify-center")}>
+        <button
+          type="button"
+          onClick={isMobile ? undefined : onToggleCollapse}
+          className={cn(
+            "flex items-center gap-2 text-left transition-all duration-200 hover:opacity-80 active:scale-95",
+            isCollapsed && "justify-center w-full",
+          )}
+          aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary/60 shadow-sm shadow-primary/20">
+            <Bot className="h-5 w-5 text-primary-foreground" />
+          </div>
+          {!isCollapsed && (
+            <div className="min-w-0">
+              <p className="truncate text-base font-medium">IskoAI</p>
+              <p className="truncate text-sm text-muted-foreground">Admin</p>
+            </div>
+          )}
+        </button>
 
         {isMobile ? (
           <Button
@@ -187,22 +185,31 @@ export function AdminSidebar({
             variant="ghost"
             size="icon-sm"
             onClick={onToggleCollapse}
-            aria-label="Collapse navigation"
+            aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
-            <PanelLeftClose data-icon="inline-start" />
+            {isCollapsed ? (
+              <PanelLeftOpen data-icon="inline-start" />
+            ) : (
+              <PanelLeftClose data-icon="inline-start" />
+            )}
           </Button>
         )}
       </div>
 
       <ScrollArea className="min-h-0 flex-1">
-        <nav className="flex flex-col gap-1 px-2 py-3">
-          {renderNavSection(adminNavItems)}
-          <div className="my-3 h-px bg-border/70" />
-          {renderNavSection(workspaceNavItems)}
+        <nav className={cn("flex flex-col gap-1 px-2 py-3", isCollapsed && "items-center")}>
+          {renderNavSection(adminNavItems, isCollapsed)}
+          <div className="my-3 h-px w-full bg-border/70" />
+          {renderNavSection(workspaceNavItems, isCollapsed)}
         </nav>
       </ScrollArea>
 
-      <div className="border-t px-3 py-3">{renderUserMenu()}</div>
+      <div className={cn("border-t px-3 py-3", isCollapsed && "flex justify-center")}>
+        {renderUserMenu({
+          compact: isCollapsed,
+          triggerClassName: isCollapsed ? "size-10 justify-center px-0" : "h-auto w-full justify-start px-2 py-2",
+        })}
+      </div>
     </div>
   )
 }

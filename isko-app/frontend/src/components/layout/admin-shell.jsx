@@ -3,6 +3,7 @@ import { Menu } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { SettingsDialog } from "@/components/settings/settings-dialog"
 import { Button } from "@/components/ui/button"
 import { AdminSidebar } from "@/components/layout/admin-sidebar"
 import { supabase } from "@/lib/supabaseClient"
@@ -18,6 +19,7 @@ export function AdminShell({
   const navigate = useNavigate()
   const [isNavOpen, setIsNavOpen] = useState(false)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [signOutError, setSignOutError] = useState("")
   const [isSigningOut, setIsSigningOut] = useState(false)
 
@@ -52,12 +54,13 @@ export function AdminShell({
         "--admin-sidebar-drawer-width": "clamp(15rem, 82vw, 16rem)",
       }}
     >
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[var(--admin-sidebar-width)] border-r bg-sidebar lg:block">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[var(--admin-sidebar-width)] border-r bg-sidebar lg:block transition-[width] duration-300 ease-in-out overflow-hidden">
         <div className="h-svh">
           <AdminSidebar
             isCollapsed={isSidebarCollapsed}
             isSigningOut={isSigningOut}
             onToggleCollapse={() => setIsSidebarCollapsed((current) => !current)}
+            onOpenSettings={() => setIsSettingsOpen(true)}
             onSignOut={handleSignOut}
             userEmail={userEmail}
           />
@@ -80,6 +83,7 @@ export function AdminShell({
                 isMobile
                 onClose={() => setIsNavOpen(false)}
                 onToggleCollapse={() => setIsSidebarCollapsed((current) => !current)}
+                onOpenSettings={() => setIsSettingsOpen(true)}
                 onSignOut={handleSignOut}
                 userEmail={userEmail}
               />
@@ -88,7 +92,7 @@ export function AdminShell({
         </>
       ) : null}
 
-      <div className="min-h-screen min-w-0 lg:pl-[var(--admin-sidebar-width)]">
+      <div className="min-h-screen min-w-0 lg:pl-[var(--admin-sidebar-width)] transition-[padding] duration-300 ease-in-out">
         <div className="min-w-0">
           <header className="sticky top-0 z-20 border-b bg-background">
             <div className="flex items-center gap-3 px-4 py-3 sm:px-6">
@@ -125,6 +129,7 @@ export function AdminShell({
           </main>
         </div>
       </div>
+      <SettingsDialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen} />
     </div>
   )
 }

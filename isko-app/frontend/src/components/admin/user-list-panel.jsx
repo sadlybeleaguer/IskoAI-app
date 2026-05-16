@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Skeleton } from "@/components/ui/skeleton"
 
 function formatDate(value) {
   if (!value) {
@@ -70,6 +71,36 @@ function FilterSelect({ id, value, onChange, options }) {
   )
 }
 
+function UserListSkeleton() {
+  return (
+    <div className="grid gap-3" role="status" aria-label="Loading user profiles">
+      {Array.from({ length: 4 }).map((_, index) => (
+        <div key={index} className="rounded-lg border bg-background p-4">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+            <div className="grid flex-1 gap-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <Skeleton className="h-5 w-40" />
+                <Skeleton className="h-7 w-20 rounded-md" />
+                <Skeleton className="h-7 w-16 rounded-md" />
+              </div>
+              <div className="grid gap-2">
+                <Skeleton className="h-4 w-64 max-w-full" />
+                <Skeleton className="h-4 w-48 max-w-full" />
+                <Skeleton className="h-4 w-52 max-w-full" />
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Skeleton className="h-9 w-16 rounded-lg" />
+              <Skeleton className="h-9 w-20 rounded-lg" />
+              <Skeleton className="h-9 w-24 rounded-lg" />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export function UserListPanel({
   currentUserId,
   feedback,
@@ -104,7 +135,7 @@ export function UserListPanel({
           </div>
           <div className="flex flex-wrap gap-3">
             <div className="flex items-center px-1 text-sm text-muted-foreground">
-              {filteredUsers.length} shown
+              {isLoadingUsers ? <Skeleton className="h-4 w-16" /> : `${filteredUsers.length} shown`}
             </div>
             <Button
               type="button"
@@ -174,9 +205,7 @@ export function UserListPanel({
         ) : null}
 
         {isLoadingUsers ? (
-          <div className="rounded-lg border border-dashed px-5 py-10 text-center text-sm text-muted-foreground">
-            Loading user profiles...
-          </div>
+          <UserListSkeleton />
         ) : null}
 
         {!isLoadingUsers && !filteredUsers.length ? (

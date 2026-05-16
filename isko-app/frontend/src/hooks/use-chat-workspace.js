@@ -76,6 +76,7 @@ export function useChatWorkspace(userId, preferredThreadId = null) {
   const [isLoadingFolders, setIsLoadingFolders] = useState(true)
   const [isLoadingArchived, setIsLoadingArchived] = useState(false)
   const [isLoadingMessages, setIsLoadingMessages] = useState(false)
+  const [hasSelectedThreadOnce, setHasSelectedThreadOnce] = useState(false)
   const [isSending, setIsSending] = useState(false)
   const [pageError, setPageError] = useState("")
   const [availableModels, setAvailableModels] = useState(defaultChatModels)
@@ -567,6 +568,7 @@ export function useChatWorkspace(userId, preferredThreadId = null) {
     }
 
     setActiveThreadId(preferredThreadId)
+    setMessages([])
     setComposerNotice("")
   }, [activeThreadId, preferredThreadId, threads])
 
@@ -869,7 +871,9 @@ export function useChatWorkspace(userId, preferredThreadId = null) {
       stopStreaming()
     }
 
+    setHasSelectedThreadOnce(true)
     setActiveThreadId(threadId)
+    setMessages([])
     setAttachedFiles([])
     setComposerNotice("")
     setIsNotePickerOpen(false)
@@ -1299,6 +1303,7 @@ export function useChatWorkspace(userId, preferredThreadId = null) {
     isLoadingMessages,
     isLoadingModels,
     isLoadingThreads,
+    hasSelectedThreadOnce,
     isNotePickerOpen,
     isSending,
     isStreamingActiveThread,

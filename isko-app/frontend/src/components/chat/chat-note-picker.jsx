@@ -2,8 +2,29 @@ import { Check, FileText, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/utils/cn"
 import { formatNoteTimestamp, getNotePreview, getNoteTitle } from "@/utils/notes"
+
+function NotePickerSkeleton() {
+  return (
+    <div className="grid gap-2" role="status" aria-label="Loading notes">
+      {Array.from({ length: 4 }).map((_, index) => (
+        <div key={index} className="flex items-start gap-3 rounded-lg border px-3 py-3">
+          <Skeleton className="size-8 shrink-0 rounded-lg" />
+          <div className="grid min-w-0 flex-1 gap-2">
+            <div className="flex items-center justify-between gap-3">
+              <Skeleton className="h-4 w-2/5" />
+              <Skeleton className="h-3 w-16" />
+            </div>
+            <Skeleton className="h-3 w-11/12" />
+            <Skeleton className="h-3 w-7/12" />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
 
 export function ChatNotePicker({
   isLoading,
@@ -47,9 +68,7 @@ export function ChatNotePicker({
         <ScrollArea className="max-h-[min(30rem,calc(100vh-10rem))]">
           <div className="flex flex-col gap-2 p-3">
             {isLoading ? (
-              <div className="px-2 py-10 text-sm text-muted-foreground">
-                Loading notes...
-              </div>
+              <NotePickerSkeleton />
             ) : !notes.length ? (
               <div className="px-2 py-10 text-sm text-muted-foreground">
                 No notes available to attach.

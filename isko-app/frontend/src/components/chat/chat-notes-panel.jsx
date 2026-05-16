@@ -3,6 +3,7 @@ import { useAuth } from "@/context/auth-context"
 import { useNotesWorkspace } from "@/hooks/use-notes-workspace"
 import { NotesEditor } from "@/components/notes/notes-editor"
 import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,6 +14,24 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { getNoteTitle, formatNoteTimestamp } from "@/utils/notes"
 import { cn } from "@/utils/cn"
+
+function ChatNotesPanelSkeleton() {
+  return (
+    <div className="flex flex-1 flex-col px-4" role="status" aria-label="Loading notes panel">
+      <div className="mt-4 grid gap-3">
+        <Skeleton className="h-7 w-2/3" />
+        <Skeleton className="h-px w-full" />
+      </div>
+      <div className="grid gap-3 py-6">
+        <Skeleton className="h-4 w-11/12" />
+        <Skeleton className="h-4 w-10/12" />
+        <Skeleton className="h-4 w-8/12" />
+        <Skeleton className="mt-3 h-4 w-9/12" />
+        <Skeleton className="h-4 w-7/12" />
+      </div>
+    </div>
+  )
+}
 
 export function ChatNotesPanel() {
   const { user } = useAuth()
@@ -42,9 +61,11 @@ export function ChatNotesPanel() {
                 className="h-9 w-full justify-between px-2 text-left font-medium"
                 disabled={isLoading}
               >
-                <span className="truncate">
-                  {isLoading ? "Loading..." : activeNote ? getNoteTitle(activeNote) : "No note selected"}
-                </span>
+                <div className="min-w-0 flex-1 truncate">
+                  {isLoading ? (
+                    <Skeleton className="h-4 w-32" />
+                  ) : activeNote ? getNoteTitle(activeNote) : "No note selected"}
+                </div>
                 <ChevronDown className="ml-2 size-4 shrink-0 opacity-50" />
               </Button>
             </DropdownMenuTrigger>
@@ -104,7 +125,9 @@ export function ChatNotesPanel() {
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        {activeNote ? (
+        {isLoading ? (
+          <ChatNotesPanelSkeleton />
+        ) : activeNote ? (
           <div className="flex flex-1 flex-col px-4">
             <div className="mt-4 flex flex-col gap-2">
               <input

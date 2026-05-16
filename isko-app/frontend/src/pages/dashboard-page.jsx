@@ -59,7 +59,7 @@ export function DashboardPage() {
       }
       userEmail={userEmail}
     >
-      <DashboardMetrics stats={stats} />
+      <DashboardMetrics isLoading={isLoadingUsers} stats={stats} />
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.4fr)_22rem]">
         <section className="min-w-0">
