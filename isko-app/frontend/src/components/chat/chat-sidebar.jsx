@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Plus, Archive, ChevronDown, ChevronRight } from "lucide-react"
 
 import { ChatFolderDialog } from "./chat-folder-dialog"
@@ -6,6 +6,22 @@ import { ChatFolderItem } from "./chat-folder-item"
 import { ChatThreadItem } from "./chat-thread-item"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
+
+const chatSidebarSectionsStorageKey = "isko-chat-sidebar-sections"
+
+function getStoredSidebarSections() {
+  if (typeof window === "undefined") {
+    return null
+  }
+
+  try {
+    const rawValue = window.localStorage.getItem(chatSidebarSectionsStorageKey)
+
+    return rawValue ? JSON.parse(rawValue) : null
+  } catch {
+    return null
+  }
+}
 
 function ChatSidebarSkeleton() {
   return (
@@ -68,11 +84,32 @@ export function ChatSidebar({
   updatingFolderId,
   validateFiles,
 }) {
-  const [isArchiveExpanded, setIsArchiveExpanded] = useState(false)
-  const [isFoldersSectionExpanded, setIsFoldersSectionExpanded] = useState(true)
-  const [isChatsSectionExpanded, setIsChatsSectionExpanded] = useState(true)
+  const [isArchiveExpanded, setIsArchiveExpanded] = useState(
+    () => getStoredSidebarSections()?.isArchiveExpanded ?? false,
+  )
+  const [isFoldersSectionExpanded, setIsFoldersSectionExpanded] = useState(
+    () => getStoredSidebarSections()?.isFoldersSectionExpanded ?? true,
+  )
+  const [isChatsSectionExpanded, setIsChatsSectionExpanded] = useState(
+    () => getStoredSidebarSections()?.isChatsSectionExpanded ?? true,
+  )
   const [editingFolder, setEditingFolder] = useState(null)
   const [isFolderDialogOpen, setIsFolderDialogOpen] = useState(false)
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return
+    }
+
+    window.localStorage.setItem(
+      chatSidebarSectionsStorageKey,
+      JSON.stringify({
+        isArchiveExpanded,
+        isChatsSectionExpanded,
+        isFoldersSectionExpanded,
+      }),
+    )
+  }, [isArchiveExpanded, isChatsSectionExpanded, isFoldersSectionExpanded])
 
   const openCreateFolderDialog = () => {
     setEditingFolder(null)

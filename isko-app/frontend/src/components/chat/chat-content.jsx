@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { MessageSquarePlus, Sparkles } from "lucide-react"
+import { Brain, MessageSquarePlus, Sparkles } from "lucide-react"
 
 import { ChatFileAttachments } from "@/components/chat/chat-file-attachments"
 import { Button } from "@/components/ui/button"
@@ -7,6 +7,20 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/utils/cn"
 
 const streamingStatusSteps = ["Thinking", "Working through it", "Finishing up"]
+
+function getGreetingByHour(date = new Date()) {
+  const hour = date.getHours()
+
+  if (hour < 12) {
+    return "Good morning"
+  }
+
+  if (hour < 18) {
+    return "Good afternoon"
+  }
+
+  return "Good evening"
+}
 
 function AssistantStreamingStatus() {
   const [statusIndex, setStatusIndex] = useState(0)
@@ -175,18 +189,20 @@ export function ChatThreadView({
   )
 }
 
-export function ChatEmptyState({ children, selectedModelLabel }) {
+export function ChatEmptyState({ children }) {
+  const greeting = getGreetingByHour()
+
   return (
     <div className="mx-auto flex min-h-full w-full max-w-6xl flex-col justify-center px-4 py-10 sm:px-6 lg:px-8">
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-8">
         <div className="flex flex-col items-center gap-3 text-center">
           <div className="flex items-center gap-3 text-3xl font-medium tracking-tight">
-            <span className="flex size-10 items-center justify-center rounded-full border">
-              <Sparkles className="size-5" />
+            <span className="flex size-11 items-center justify-center rounded-full border bg-primary/8 text-primary shadow-sm shadow-primary/10">
+              <Brain className="size-5" />
             </span>
-            {selectedModelLabel || "No models available"}
+            {greeting}
           </div>
-          <p className="text-sm text-muted-foreground">Workspace model</p>
+          <p className="text-sm text-muted-foreground">Welcome back to IskoAI</p>
         </div>
 
         {children}

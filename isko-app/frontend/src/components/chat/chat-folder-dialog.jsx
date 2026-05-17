@@ -218,7 +218,7 @@ export function ChatFolderDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="settings-dialog-grain overflow-hidden p-0 sm:max-w-2xl">
+        <DialogContent className="overflow-hidden p-0 sm:max-w-2xl">
           <form onSubmit={handleSubmit}>
             <div className="border-b border-border/70 bg-card px-5 py-4">
               <DialogHeader className="max-w-xl pr-8">
@@ -389,10 +389,7 @@ export function ChatFolderDialog({
                       Remove
                     </Button>
                   </div>
-                ) : (
-                  <div className="rounded-lg border border-dashed border-border/70 bg-muted/10 px-4 py-3 text-sm text-muted-foreground">
-                  </div>
-                )}
+                ) : null}
 
                 {displayedFiles.length ? (
                   <ChatFileAttachments
