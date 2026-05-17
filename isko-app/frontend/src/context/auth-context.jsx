@@ -18,6 +18,7 @@ import {
 } from "@/services/auth.service"
 
 const AuthContext = createContext(null)
+const SESSION_INACTIVITY_LIMIT = 15 * 60 * 1000
 
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null)
@@ -27,9 +28,74 @@ export function AuthProvider({ children }) {
   const [profileError, setProfileError] = useState("")
   const [authNotice, setAuthNotice] = useState("")
   const sessionUserIdRef = useRef(null)
+  const inactivityTimeoutRef = useRef(null)
 
   useEffect(() => {
     sessionUserIdRef.current = session?.user?.id ?? null
+  }, [session?.user?.id])
+
+  useEffect(() => {
+    const clearSessionTimeout = () => {
+      if (inactivityTimeoutRef.current) {
+        window.clearTimeout(inactivityTimeoutRef.current)
+        inactivityTimeoutRef.current = null
+      }
+    }
+
+    const signOutForInactivity = async () => {
+      if (!supabase) {
+        return
+      }
+
+      await supabase.auth.signOut().catch(() => undefined)
+      setSession(null)
+      setProfile(null)
+      setAuthNotice("Your session timed out due to inactivity. Please sign in again.")
+      setIsLoading(false)
+    }
+
+    const resetSessionTimeout = () => {
+      clearSessionTimeout()
+
+      if (!session?.user?.id) {
+        return
+      }
+
+      inactivityTimeoutRef.current = window.setTimeout(
+        signOutForInactivity,
+        SESSION_INACTIVITY_LIMIT,
+      )
+    }
+
+    if (!supabase || !session?.user?.id) {
+      clearSessionTimeout()
+      return undefined
+    }
+
+    const activityEvents = [
+      "mousemove",
+      "mousedown",
+      "keydown",
+      "touchstart",
+      "scroll",
+    ]
+
+    const handleActivity = () => {
+      resetSessionTimeout()
+    }
+
+    resetSessionTimeout()
+
+    activityEvents.forEach((eventName) => {
+      window.addEventListener(eventName, handleActivity)
+    })
+
+    return () => {
+      clearSessionTimeout()
+      activityEvents.forEach((eventName) =>
+        window.removeEventListener(eventName, handleActivity),
+      )
+    }
   }, [session?.user?.id])
 
   useEffect(() => {
