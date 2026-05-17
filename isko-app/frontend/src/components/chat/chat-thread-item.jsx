@@ -10,7 +10,6 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { formatRelativeTime } from "@/utils/chat"
 import { cn } from "@/lib/utils"
 
 export function ChatThreadItem({

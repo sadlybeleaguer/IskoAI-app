@@ -36,6 +36,10 @@ type UserMutationPayload = {
   userId?: string
 }
 
+type ListUsersPayload = {
+  action: "listUsers"
+}
+
 type ListModelsPayload = {
   action: "listModels"
 }
@@ -50,6 +54,7 @@ type ActionRequest =
   | ({ action?: "create" } & CreatePayload)
   | ({ action?: "update" } & UpdatePayload)
   | ({ action?: "archive" | "restore" | "delete" } & UserMutationPayload)
+  | ListUsersPayload
   | ListModelsPayload
   | UpdateModelAvailabilityPayload
 
@@ -88,6 +93,20 @@ function jsonResponse(status: number, body: Record<string, unknown>) {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   })
+}
+
+function requireSupabaseConfig() {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? ""
+  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? ""
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new HttpError(500, "Supabase function auth configuration is missing.")
+  }
+
+  return {
+    supabaseAnonKey,
+    supabaseUrl,
+  }
 }
 
 function trimEmail(value: unknown) {
@@ -232,6 +251,23 @@ function createServiceClient() {
   })
 }
 
+function createAuthedSupabaseClient(authHeader: string) {
+  const { supabaseAnonKey, supabaseUrl } = requireSupabaseConfig()
+
+  return createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+      persistSession: false,
+    },
+    global: {
+      headers: {
+        Authorization: authHeader,
+      },
+    },
+  })
+}
+
 function getAccessToken(authHeader: string) {
   const [scheme, token] = authHeader.trim().split(/\s+/, 2)
 
@@ -247,10 +283,11 @@ async function getCallerProfile(
   authHeader: string,
 ) {
   const token = getAccessToken(authHeader)
+  const authClient = createAuthedSupabaseClient(authHeader)
   const {
     data: { user },
     error: userError,
-  } = await serviceClient.auth.getUser(token)
+  } = await authClient.auth.getUser(token)
 
   if (userError) {
     throw new HttpError(401, userError.message)
@@ -586,6 +623,19 @@ async function handleDelete(
   })
 }
 
+async function handleListUsers(serviceClient: SupabaseClient) {
+  const { data, error } = await serviceClient
+    .from("profiles")
+    .select(PROFILE_FIELDS)
+    .order("created_at", { ascending: false })
+
+  if (error) {
+    throw new HttpError(500, error.message)
+  }
+
+  return jsonResponse(200, { users: data ?? [] })
+}
+
 async function handleListModels(serviceClient: SupabaseClient) {
   const { data, error } = await serviceClient
     .from("chat_models")
@@ -656,6 +706,8 @@ Deno.serve(async (request: Request) => {
         return await handleRestore(serviceClient, payload)
       case "delete":
         return await handleDelete(serviceClient, callerProfile, payload)
+      case "listUsers":
+        return await handleListUsers(serviceClient)
       case "listModels":
         return await handleListModels(serviceClient)
       case "updateModelAvailability":
@@ -663,7 +715,7 @@ Deno.serve(async (request: Request) => {
       default:
         throw new HttpError(
           400,
-          "Action must be one of create, update, archive, restore, delete, listModels, or updateModelAvailability.",
+          "Action must be one of create, update, archive, restore, delete, listUsers, listModels, or updateModelAvailability.",
         )
     }
   } catch (error) {

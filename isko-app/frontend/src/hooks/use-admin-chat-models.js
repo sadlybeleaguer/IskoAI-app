@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react"
 
-import { supabase } from "@/lib/supabaseClient"
+import { invokeManageUsers } from "@/services/db.service"
 import { getErrorMessage } from "@/utils/errors"
 
 export function useAdminChatModels({ session }) {
@@ -9,9 +9,10 @@ export function useAdminChatModels({ session }) {
   const [modelsFeedback, setModelsFeedback] = useState({ type: "", message: "" })
   const [isLoadingModels, setIsLoadingModels] = useState(true)
   const [updatingModelKey, setUpdatingModelKey] = useState("")
+  const isSignedIn = Boolean(session)
 
   const loadModels = useCallback(async () => {
-    if (!session || !supabase) {
+    if (!isSignedIn) {
       setModels([])
       setModelsError("You must be signed in to manage models.")
       setIsLoadingModels(false)
@@ -21,17 +22,8 @@ export function useAdminChatModels({ session }) {
     setIsLoadingModels(true)
 
     try {
-      const { data, error } = await supabase
-        .from("chat_models")
-        .select("key, label, provider, enabled, sort_order, created_at, updated_at")
-        .order("sort_order", { ascending: true })
-        .order("label", { ascending: true })
-
-      if (error) {
-        throw error
-      }
-
-      setModels(data ?? [])
+      const result = await invokeManageUsers(null, { action: "listModels" })
+      setModels(Array.isArray(result.models) ? result.models : [])
       setModelsError("")
     } catch (error) {
       setModels([])
@@ -39,11 +31,11 @@ export function useAdminChatModels({ session }) {
     } finally {
       setIsLoadingModels(false)
     }
-  }, [session])
+  }, [isSignedIn])
 
   const updateModelAvailability = useCallback(
     async (model) => {
-      if (!session || !supabase) {
+      if (!isSignedIn) {
         setModelsFeedback({
           type: "error",
           message: "You must be signed in to manage models.",
@@ -55,18 +47,16 @@ export function useAdminChatModels({ session }) {
       setModelsFeedback({ type: "", message: "" })
 
       try {
-        const { data, error } = await supabase
-          .from("chat_models")
-          .update({ enabled: !model.enabled })
-          .eq("key", model.key)
-          .select("key, label, provider, enabled, sort_order, created_at, updated_at")
-          .single()
+        const result = await invokeManageUsers(null, {
+          action: "updateModelAvailability",
+          enabled: !model.enabled,
+          modelKey: model.key,
+        })
+        const updatedModel = result.model
 
-        if (error) {
-          throw error
+        if (!updatedModel?.key) {
+          throw new Error("The model update response was missing the model record.")
         }
-
-        const updatedModel = data
 
         setModels((currentModels) =>
           currentModels.map((currentModel) =>
@@ -83,7 +73,7 @@ export function useAdminChatModels({ session }) {
         setUpdatingModelKey("")
       }
     },
-    [session],
+    [isSignedIn],
   )
 
   return {

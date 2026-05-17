@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useState } from "react"
 
 import { invokeManageUsers } from "@/services/db.service"
-import { supabase } from "@/lib/supabaseClient"
 import { getErrorMessage } from "@/utils/errors"
 
 export const roleOptions = [
@@ -34,33 +33,29 @@ export function useDashboardUsers({ profileId, refreshProfile, session }) {
   const [statusFilter, setStatusFilter] = useState("active")
   const [formMode, setFormMode] = useState("create")
   const [draft, setDraft] = useState(emptyDraft)
+  const isSignedIn = Boolean(session)
 
   const loadUsers = useCallback(async () => {
-    if (!supabase) {
+    if (!isSignedIn) {
       setUsers([])
-      setUsersError("Supabase is not configured.")
+      setUsersError("You must be signed in to manage users.")
       setIsLoadingUsers(false)
       return
     }
 
     setIsLoadingUsers(true)
 
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("id, email, full_name, role, status, archived_at, created_at, updated_at")
-      .order("created_at", { ascending: false })
-
-    if (error) {
+    try {
+      const result = await invokeManageUsers(null, { action: "listUsers" })
+      setUsers(Array.isArray(result.users) ? result.users : [])
+      setUsersError("")
+    } catch (error) {
       setUsers([])
-      setUsersError(error.message)
+      setUsersError(getErrorMessage(error))
+    } finally {
       setIsLoadingUsers(false)
-      return
     }
-
-    setUsers(data ?? [])
-    setUsersError("")
-    setIsLoadingUsers(false)
-  }, [])
+  }, [isSignedIn])
 
   const stats = useMemo(
     () => ({
