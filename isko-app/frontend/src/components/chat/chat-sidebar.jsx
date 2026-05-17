@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { Plus, Archive, ChevronDown, ChevronRight } from "lucide-react"
 
+import { ChatFolderDialog } from "./chat-folder-dialog"
 import { ChatFolderItem } from "./chat-folder-item"
 import { ChatThreadItem } from "./chat-thread-item"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -44,24 +45,48 @@ export function ChatSidebar({
   deleteThreadPermanent,
   deletingThreadId,
   folders = [],
+  getFolderFiles,
   folderThreads = new Map(),
   groupedThreads = [],
   isLoadingArchived,
+  isLoadingAvailableNotes,
+  isLoadingFolderFiles,
   isLoadingFolders,
   isLoadingThreads,
+  isUploadingFolderFiles,
+  loadAvailableNotes,
+  loadFolderFiles,
   moveThreadToFolder,
   onArchiveThread,
   onRestoreThread,
   onSelectThread,
+  availableNotes = [],
+  removeFolderFile,
+  removingFolderFileId = "",
   updateFolder,
+  uploadFolderFiles,
   updatingFolderId,
+  validateFiles,
 }) {
   const [isArchiveExpanded, setIsArchiveExpanded] = useState(false)
   const [isFoldersSectionExpanded, setIsFoldersSectionExpanded] = useState(true)
   const [isChatsSectionExpanded, setIsChatsSectionExpanded] = useState(true)
+  const [editingFolder, setEditingFolder] = useState(null)
+  const [isFolderDialogOpen, setIsFolderDialogOpen] = useState(false)
+
+  const openCreateFolderDialog = () => {
+    setEditingFolder(null)
+    setIsFolderDialogOpen(true)
+  }
+
+  const openFolderSettings = (folder) => {
+    setEditingFolder(folder)
+    setIsFolderDialogOpen(true)
+  }
 
   return (
-    <div className="flex flex-col gap-2 py-3">
+    <>
+      <div className="flex flex-col gap-2 py-3">
       {/* Folders Section */}
       <div className="flex flex-col gap-0.5">
         <div className="group flex items-center justify-between px-2">
@@ -83,8 +108,7 @@ export function ChatSidebar({
             type="button"
             onClick={(e) => {
               e.stopPropagation()
-              const title = window.prompt("Folder name:")
-              if (title?.trim()) createFolder(title.trim())
+              openCreateFolderDialog()
             }}
             className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
             title="New Folder"
@@ -107,6 +131,7 @@ export function ChatSidebar({
                   key={folder.id}
                   folder={folder}
                   onDelete={deleteFolder}
+                  onOpenSettings={openFolderSettings}
                   onUpdate={updateFolder}
                   updatingFolderId={updatingFolderId}
                 >
@@ -235,6 +260,31 @@ export function ChatSidebar({
             </div>
           )}
         </div>
-    </div>
+      </div>
+
+      <ChatFolderDialog
+        availableNotes={availableNotes}
+        createFolder={createFolder}
+        folder={editingFolder}
+        getFolderFiles={getFolderFiles}
+        isLoadingFolderFiles={isLoadingFolderFiles(editingFolder?.id ?? "")}
+        isLoadingNotes={isLoadingAvailableNotes}
+        isUploadingFiles={isUploadingFolderFiles(editingFolder?.id ?? "")}
+        loadAvailableNotes={loadAvailableNotes}
+        loadFolderFiles={loadFolderFiles}
+        onOpenChange={(open) => {
+          setIsFolderDialogOpen(open)
+          if (!open) {
+            setEditingFolder(null)
+          }
+        }}
+        open={isFolderDialogOpen}
+        removeFolderFile={removeFolderFile}
+        removingFileId={removingFolderFileId}
+        updateFolder={updateFolder}
+        uploadFolderFiles={uploadFolderFiles}
+        validateFiles={validateFiles}
+      />
+    </>
   )
 }

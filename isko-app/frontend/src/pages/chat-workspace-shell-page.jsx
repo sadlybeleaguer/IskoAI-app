@@ -40,6 +40,7 @@ export function ChatWorkspaceShellPage() {
     draft,
     endOfMessagesRef,
     folders,
+    getFolderFiles,
     folderThreads,
     groupedThreads,
     handleComposerKeyDown,
@@ -57,6 +58,7 @@ export function ChatWorkspaceShellPage() {
     hasAvailableModels,
     isLoadingAttachedFiles,
     isLoadingAvailableNotes,
+    isLoadingFolderFiles,
     isLoadingModels,
     isEphemeral,
     selectedModelKey,
@@ -64,9 +66,14 @@ export function ChatWorkspaceShellPage() {
     selectedTool,
     isNotePickerOpen,
     isUploadingFiles,
+    isUploadingFolderFiles,
+    loadAvailableNotes,
+    loadFolderFiles,
     selectThread,
     removeAttachedFile,
+    removeFolderFile,
     removingFileId,
+    removingFolderFileId,
     restoreThread,
     sendMessage,
     setAttachedNote,
@@ -77,6 +84,8 @@ export function ChatWorkspaceShellPage() {
     openNotePicker,
     stopStreaming,
     streamingMessageId,
+    uploadFolderFiles,
+    validateFiles,
     isUpdatingAttachedNote,
     updateFolder,
     updatingFolderId,
@@ -188,11 +197,17 @@ export function ChatWorkspaceShellPage() {
           deleteThreadPermanent={deleteThreadPermanent}
           deletingThreadId={deletingThreadId}
           folders={folders}
+          getFolderFiles={getFolderFiles}
           folderThreads={folderThreads}
           groupedThreads={groupedThreads}
           isLoadingArchived={isLoadingArchived}
+          isLoadingAvailableNotes={isLoadingAvailableNotes}
+          isLoadingFolderFiles={isLoadingFolderFiles}
           isLoadingFolders={isLoadingFolders}
           isLoadingThreads={isLoadingThreads}
+          isUploadingFolderFiles={isUploadingFolderFiles}
+          loadAvailableNotes={loadAvailableNotes}
+          loadFolderFiles={loadFolderFiles}
           moveThreadToFolder={moveThreadToFolder}
           onArchiveThread={(threadId) => {
             if (preferredThreadId === threadId || activeThreadId === threadId) {
@@ -202,8 +217,13 @@ export function ChatWorkspaceShellPage() {
           }}
           onRestoreThread={restoreThread}
           onSelectThread={handleSelectThread}
+          availableNotes={availableNotes}
+          removeFolderFile={removeFolderFile}
+          removingFolderFileId={removingFolderFileId}
           updateFolder={updateFolder}
+          uploadFolderFiles={uploadFolderFiles}
           updatingFolderId={updatingFolderId}
+          validateFiles={validateFiles}
         />
       }
     >

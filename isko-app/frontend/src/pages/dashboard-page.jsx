@@ -1,6 +1,7 @@
 import { useEffect } from "react"
 
 import { DashboardMetrics } from "@/components/admin/dashboard-metrics"
+import { UserActionDialog } from "@/components/admin/user-action-dialog"
 import { UserEditorCard } from "@/components/admin/user-editor-card"
 import { UserListPanel } from "@/components/admin/user-list-panel"
 import { AdminShell } from "@/components/layout/admin-shell"
@@ -14,19 +15,24 @@ import {
 export function DashboardPage() {
   const { profile, refreshProfile, session, userEmail } = useAuth()
   const {
+    confirmPendingUserAction,
+    deleteConfirmationValue,
     draft,
-    feedback,
     filteredUsers,
     formMode,
     handleArchive,
+    handleConfirmationOpenChange,
+    handleDeleteConfirmationChange,
     handleDelete,
     handleDraftChange,
     handleRestore,
     handleSubmit,
     isEditingSelf,
+    isConfirmationOpen,
     isLoadingUsers,
     isSubmitting,
     loadUsers,
+    pendingUserAction,
     resetForm,
     roleFilter,
     searchTerm,
@@ -36,7 +42,6 @@ export function DashboardPage() {
     startEditing,
     stats,
     statusFilter,
-    usersError,
   } = useDashboardUsers({
     profileId: profile?.id,
     refreshProfile,
@@ -59,46 +64,58 @@ export function DashboardPage() {
       }
       userEmail={userEmail}
     >
-      <DashboardMetrics isLoading={isLoadingUsers} stats={stats} />
+      <div className="flex flex-col gap-5 xl:min-h-0 xl:flex-1">
+        <DashboardMetrics isLoading={isLoadingUsers} stats={stats} />
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.4fr)_22rem]">
-        <section className="min-w-0">
-          <UserListPanel
-            currentUserId={profile?.id}
-            feedback={feedback}
-            filteredUsers={filteredUsers}
-            isLoadingUsers={isLoadingUsers}
-            isSubmitting={isSubmitting}
-            onArchive={handleArchive}
-            onDelete={handleDelete}
-            onEdit={startEditing}
-            onRefresh={loadUsers}
-            onRestore={handleRestore}
-            roleFilter={roleFilter}
-            roleOptions={roleOptions}
-            searchTerm={searchTerm}
-            setRoleFilter={setRoleFilter}
-            setSearchTerm={setSearchTerm}
-            setStatusFilter={setStatusFilter}
-            statusFilter={statusFilter}
-            statusOptions={statusOptions}
-            usersError={usersError}
-          />
-        </section>
+        <div className="grid gap-5 xl:min-h-0 xl:flex-1 xl:grid-cols-[minmax(0,1.4fr)_22rem]">
+          <section className="min-w-0 xl:min-h-0">
+            <UserListPanel
+              currentUserId={profile?.id}
+              filteredUsers={filteredUsers}
+              isLoadingUsers={isLoadingUsers}
+              isSubmitting={isSubmitting}
+              onArchive={handleArchive}
+              onDelete={handleDelete}
+              onEdit={startEditing}
+              onRefresh={loadUsers}
+              onRestore={handleRestore}
+              roleFilter={roleFilter}
+              roleOptions={roleOptions}
+              searchTerm={searchTerm}
+              selectedUserId={formMode === "edit" ? draft.userId : ""}
+              setRoleFilter={setRoleFilter}
+              setSearchTerm={setSearchTerm}
+              setStatusFilter={setStatusFilter}
+              statusFilter={statusFilter}
+              statusOptions={statusOptions}
+            />
+          </section>
 
-        <aside className="min-w-0">
-          <UserEditorCard
-            draft={draft}
-            formMode={formMode}
-            isEditingSelf={isEditingSelf}
-            isSubmitting={isSubmitting}
-            onDraftChange={handleDraftChange}
-            onReset={resetForm}
-            onSubmit={handleSubmit}
-            roleOptions={roleOptions}
-            statusOptions={statusOptions}
-          />
-        </aside>
+          <aside className="min-w-0 xl:min-h-0">
+            <UserEditorCard
+              draft={draft}
+              formMode={formMode}
+              isEditingSelf={isEditingSelf}
+              isSubmitting={isSubmitting}
+              onDraftChange={handleDraftChange}
+              onReset={resetForm}
+              onSubmit={handleSubmit}
+              roleOptions={roleOptions}
+              statusOptions={statusOptions}
+            />
+          </aside>
+        </div>
+
+        <UserActionDialog
+          action={pendingUserAction?.action ?? ""}
+          confirmationValue={deleteConfirmationValue}
+          isSubmitting={isSubmitting}
+          onConfirmationChange={handleDeleteConfirmationChange}
+          onConfirm={confirmPendingUserAction}
+          onOpenChange={handleConfirmationOpenChange}
+          open={isConfirmationOpen}
+          user={pendingUserAction?.user ?? null}
+        />
       </div>
     </AdminShell>
   )

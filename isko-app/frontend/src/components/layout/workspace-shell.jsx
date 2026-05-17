@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react"
 import {
   CalendarDays,
   FileText,
+  ListChecks,
   LogOut,
   Menu,
   MessageSquare,
@@ -40,6 +41,7 @@ const navigationItems = [
   { key: "chat", label: "Chat", to: "/chat", icon: MessageSquare },
   { key: "notes", label: "Notes", to: "/notes", icon: FileText },
   { key: "calendar", label: "Calendar", to: "/calendar", icon: CalendarDays },
+  { key: "quiz", label: "Quiz", to: "/quiz", icon: ListChecks },
 ]
 
 function getInitials(value) {
@@ -82,7 +84,7 @@ export function WorkspaceShell({
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isSigningOut, setIsSigningOut] = useState(false)
   const [signOutError, setSignOutError] = useState("")
-  const isChatPage = pageKey === "chat"
+  const isFixedViewportPage = pageKey === "chat" || pageKey === "quiz"
   const {
     errorMessage: searchErrorMessage,
     flatResults,
@@ -481,14 +483,14 @@ export function WorkspaceShell({
     <div
       className={cn(
         "bg-background text-foreground",
-        isChatPage ? "h-svh overflow-hidden" : "min-h-screen",
+        isFixedViewportPage ? "h-svh overflow-hidden" : "min-h-screen",
       )}
       style={{
         "--workspace-sidebar-width": isSidebarCollapsed ? "4.5rem" : "15.5rem",
         "--workspace-sidebar-drawer-width": "clamp(15rem, 82vw, 16rem)",
       }}
     >
-      {isChatPage ? (
+      {isFixedViewportPage ? (
         <>
           <aside className="fixed inset-y-0 left-0 z-30 hidden w-[var(--workspace-sidebar-width)] lg:block overflow-hidden transition-[width] duration-300 ease-in-out">
             <div className="h-svh border-r border-border/50">

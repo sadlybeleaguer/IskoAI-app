@@ -1,4 +1,5 @@
 import { Check, FileText, X } from "lucide-react"
+import { createPortal } from "react-dom"
 
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -27,6 +28,8 @@ function NotePickerSkeleton() {
 }
 
 export function ChatNotePicker({
+  description = "One note stays attached to this thread until you remove it.",
+  heading = "Attach note",
   isLoading,
   notes,
   onClose,
@@ -38,9 +41,13 @@ export function ChatNotePicker({
     return null
   }
 
-  return (
+  if (typeof document === "undefined") {
+    return null
+  }
+
+  return createPortal(
     <div
-      className="fixed inset-0 z-[65] flex items-start justify-center bg-black/45 p-4 sm:p-6"
+      className="fixed inset-0 z-[80] flex items-start justify-center bg-black/45 p-4 sm:p-6"
       onClick={onClose}
     >
       <div
@@ -49,9 +56,9 @@ export function ChatNotePicker({
       >
         <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
           <div className="min-w-0">
-            <div className="truncate text-sm font-medium">Attach note</div>
+            <div className="truncate text-sm font-medium">{heading}</div>
             <div className="truncate text-xs text-muted-foreground">
-              One note stays attached to this thread until you remove it.
+              {description}
             </div>
           </div>
           <Button
@@ -114,6 +121,7 @@ export function ChatNotePicker({
           </div>
         </ScrollArea>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

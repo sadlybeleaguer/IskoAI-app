@@ -7,8 +7,6 @@ import { getDocument } from "npm:pdfjs-dist@5.4.296/legacy/build/pdf.mjs"
 import { corsHeaders } from "../_shared/cors.ts"
 
 const CHAT_FILES_BUCKET = "chat-files"
-const FILE_SELECT =
-  "id, thread_id, user_id, original_name, mime_type, size_bytes, status, error_message, created_at, updated_at"
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024
 const MAX_EXTRACTED_TEXT_LENGTH = 40000
 const MAX_ERROR_MESSAGE_LENGTH = 500
@@ -36,16 +34,18 @@ const TEXT_FILE_EXTENSIONS = new Set([
 ])
 
 type SupportedExtension = keyof typeof SUPPORTED_EXTENSION_MIME_TYPES
+type AttachmentTarget = "folder" | "thread"
 
 type AttachmentRecord = {
   created_at: string
   error_message: string
+  folder_id?: string | null
   id: string
   mime_type: string
   original_name: string
   size_bytes: number
   status: "failed" | "processing" | "ready"
-  thread_id: string
+  thread_id?: string | null
   updated_at: string
   user_id: string
 }
@@ -122,6 +122,17 @@ function requireString(value: FormDataEntryValue | unknown, fieldName: string) {
   }
 
   return value.trim()
+}
+
+function requireAttachmentTarget(value: FormDataEntryValue | unknown) {
+  const normalizedTarget =
+    typeof value === "string" && value.trim() ? value.trim().toLowerCase() : "thread"
+
+  if (normalizedTarget === "thread" || normalizedTarget === "folder") {
+    return normalizedTarget as AttachmentTarget
+  }
+
+  throw new HttpError(400, "target must be thread or folder.")
 }
 
 function getFileExtension(fileName: string): SupportedExtension {
@@ -358,14 +369,46 @@ async function requireOwnedThread(
   }
 }
 
+async function requireOwnedFolder(
+  serviceClient: SupabaseClient,
+  folderId: string,
+  userId: string,
+) {
+  const { data, error } = await serviceClient
+    .from("chat_folders")
+    .select("id, user_id")
+    .eq("id", folderId)
+    .eq("user_id", userId)
+    .maybeSingle<{ id: string; user_id: string }>()
+
+  if (error) {
+    throw new HttpError(500, error.message)
+  }
+
+  if (!data) {
+    throw new HttpError(404, "Chat folder was not found.")
+  }
+}
+
+function getAttachmentTableName(target: AttachmentTarget) {
+  return target === "folder" ? "chat_folder_files" : "chat_thread_files"
+}
+
+function getAttachmentSelect(target: AttachmentTarget) {
+  return target === "folder"
+    ? "id, folder_id, user_id, original_name, mime_type, size_bytes, status, error_message, created_at, updated_at"
+    : "id, thread_id, user_id, original_name, mime_type, size_bytes, status, error_message, created_at, updated_at"
+}
+
 async function persistAttachmentRecord(
   serviceClient: SupabaseClient,
+  target: AttachmentTarget,
   values: Record<string, unknown>,
 ) {
   const { data, error } = await serviceClient
-    .from("chat_thread_files")
+    .from(getAttachmentTableName(target))
     .insert(values)
-    .select(FILE_SELECT)
+    .select(getAttachmentSelect(target))
     .single<AttachmentRecord>()
 
   if (error) {
@@ -382,19 +425,27 @@ async function handleUpload(
 ) {
   const formData = await request.formData()
   const action = formData.get("action")
+  const target = requireAttachmentTarget(formData.get("target"))
 
   if (action != null && action !== "upload") {
     throw new HttpError(400, "Unsupported chat file action.")
   }
 
-  const threadId = requireString(formData.get("threadId"), "threadId")
+  const parentId = requireString(
+    target === "folder" ? formData.get("folderId") : formData.get("threadId"),
+    target === "folder" ? "folderId" : "threadId",
+  )
   const fileEntry = formData.get("file")
 
   if (!(fileEntry instanceof File)) {
     throw new HttpError(400, "file is required.")
   }
 
-  await requireOwnedThread(serviceClient, threadId, userId)
+  if (target === "folder") {
+    await requireOwnedFolder(serviceClient, parentId, userId)
+  } else {
+    await requireOwnedThread(serviceClient, parentId, userId)
+  }
 
   if (!fileEntry.size) {
     throw new HttpError(400, "The uploaded file is empty.")
@@ -408,7 +459,10 @@ async function handleUpload(
   const extension = getFileExtension(originalName)
   const mimeType = SUPPORTED_EXTENSION_MIME_TYPES[extension]
   const sanitizedFileName = sanitizeFileName(originalName)
-  const storagePath = `${userId}/${threadId}/${crypto.randomUUID()}-${sanitizedFileName}`
+  const storagePath =
+    target === "folder"
+      ? `${userId}/folders/${parentId}/${crypto.randomUUID()}-${sanitizedFileName}`
+      : `${userId}/threads/${parentId}/${crypto.randomUUID()}-${sanitizedFileName}`
   const fileBytes = new Uint8Array(await fileEntry.arrayBuffer())
 
   const { error: uploadError } = await serviceClient.storage
@@ -442,7 +496,8 @@ async function handleUpload(
   }
 
   try {
-    const file = await persistAttachmentRecord(serviceClient, {
+    const file = await persistAttachmentRecord(serviceClient, target, {
+      [target === "folder" ? "folder_id" : "thread_id"]: parentId,
       error_message: errorMessage,
       extracted_text: status === "ready" ? extractedText : "",
       mime_type: mimeType,
@@ -451,7 +506,6 @@ async function handleUpload(
       status,
       storage_bucket: CHAT_FILES_BUCKET,
       storage_path: storagePath,
-      thread_id: threadId,
       user_id: userId,
     })
 
@@ -468,8 +522,9 @@ async function handleDelete(
   userId: string,
 ) {
   const fileId = requireString(payload.fileId, "fileId")
+  const target = requireAttachmentTarget(payload.target)
   const { data, error } = await serviceClient
-    .from("chat_thread_files")
+    .from(getAttachmentTableName(target))
     .select("id, storage_bucket, storage_path")
     .eq("id", fileId)
     .eq("user_id", userId)
@@ -492,7 +547,7 @@ async function handleDelete(
   }
 
   const { error: deleteError } = await serviceClient
-    .from("chat_thread_files")
+    .from(getAttachmentTableName(target))
     .delete()
     .eq("id", fileId)
     .eq("user_id", userId)
