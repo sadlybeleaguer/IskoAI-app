@@ -1,6 +1,6 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Menu } from "lucide-react"
-import { useNavigate } from "react-router-dom"
+import { useLocation, useNavigate } from "react-router-dom"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { SettingsDialog } from "@/components/settings/settings-dialog"
@@ -9,6 +9,16 @@ import { AdminSidebar } from "@/components/layout/admin-sidebar"
 import { supabase } from "@/lib/supabaseClient"
 import { getErrorMessage } from "@/utils/errors"
 
+const adminCollapseStorageKey = "isko-admin-sidebar-collapsed"
+
+function getStoredCollapseState() {
+  if (typeof window === "undefined") {
+    return false
+  }
+
+  return window.localStorage.getItem(adminCollapseStorageKey) === "true"
+}
+
 export function AdminShell({
   alerts,
   children,
@@ -16,12 +26,24 @@ export function AdminShell({
   headerContent,
   userEmail,
 }) {
+  const location = useLocation()
   const navigate = useNavigate()
   const [isNavOpen, setIsNavOpen] = useState(false)
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(getStoredCollapseState)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [signOutError, setSignOutError] = useState("")
   const [isSigningOut, setIsSigningOut] = useState(false)
+
+  useEffect(() => {
+    window.localStorage.setItem(
+      adminCollapseStorageKey,
+      String(isSidebarCollapsed),
+    )
+  }, [isSidebarCollapsed])
+
+  useEffect(() => {
+    setIsNavOpen(false)
+  }, [location.pathname])
 
   const handleSignOut = async () => {
     if (!supabase) {
@@ -70,11 +92,11 @@ export function AdminShell({
       {isNavOpen ? (
         <>
           <div
-            className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+            className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden"
             onClick={() => setIsNavOpen(false)}
           />
           <aside
-            className="fixed inset-y-0 left-0 z-50 w-[var(--admin-sidebar-drawer-width)] border-r bg-sidebar lg:hidden"
+            className="fixed inset-y-0 left-0 z-50 w-[var(--admin-sidebar-drawer-width)] border-r border-border/50 bg-sidebar shadow-xl shadow-black/10 lg:hidden"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="h-svh">

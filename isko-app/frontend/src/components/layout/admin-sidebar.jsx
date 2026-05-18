@@ -1,10 +1,10 @@
 import {
   Bot,
+  Brain,
   LogOut,
   MessageSquare,
   MoreHorizontal,
   PanelLeftClose,
-  PanelLeftOpen,
   Settings,
   Users,
   X,
@@ -40,6 +40,32 @@ function getInitials(value) {
     .join("")
 }
 
+function AdminLogoBrand({ collapsed = false, onToggle }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className={cn(
+        "flex items-center gap-2 text-left transition-all duration-200 hover:opacity-80 active:scale-95",
+        collapsed && "w-full justify-center",
+      )}
+      aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+    >
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary/60 shadow-sm shadow-primary/20">
+        <Brain className="h-5 w-5 text-primary-foreground" />
+      </div>
+      {!collapsed && (
+        <div className="min-w-0">
+          <p className="truncate text-base font-bold leading-tight text-foreground">
+            IskoAI
+          </p>
+          <p className="truncate text-xs text-muted-foreground">Admin</p>
+        </div>
+      )}
+    </button>
+  )
+}
+
 export function AdminSidebar({
   isCollapsed = false,
   isSigningOut,
@@ -65,15 +91,28 @@ export function AdminSidebar({
                 variant="ghost"
                 size={collapsed ? "icon" : "default"}
                 className={cn(
+                  "transition-all duration-200",
                   collapsed
                     ? "size-10 justify-center"
                     : "h-9 w-full justify-start px-3",
-                  isActive ? "bg-background text-foreground" : "text-muted-foreground",
+                  isActive
+                    ? [
+                        "border border-primary/20 bg-gradient-to-r from-primary/10 to-primary/5",
+                        "font-medium text-primary shadow-sm shadow-primary/10",
+                        "hover:from-primary/15 hover:to-primary/8",
+                      ].join(" ")
+                    : "text-muted-foreground hover:bg-primary/5 hover:text-foreground",
                 )}
                 aria-current={isActive ? "page" : undefined}
                 onClick={onClose}
               >
-                <Icon data-icon="inline-start" />
+                <Icon
+                  className={cn(
+                    "h-4 w-4 transition-colors duration-200",
+                    collapsed ? "mx-auto" : "mr-2",
+                  )}
+                  data-icon="inline-start"
+                />
                 {collapsed ? null : item.label}
               </Button>
             )}
@@ -146,17 +185,39 @@ export function AdminSidebar({
     </DropdownMenu>
   )
 
+  if (isCollapsed && !isMobile) {
+    return (
+      <div className="flex h-full flex-col items-center border-r border-border/50 bg-gradient-to-b from-sidebar via-sidebar to-muted/20 px-2 py-3 text-sidebar-foreground">
+        <div className="mb-2 py-1">
+          <AdminLogoBrand collapsed onToggle={onToggleCollapse} />
+        </div>
+
+        <nav className="mt-3 flex flex-col items-center gap-1.5">
+          {renderNavSection(adminNavItems, true)}
+          <div className="my-2 h-px w-10 bg-border/70" />
+          {renderNavSection(workspaceNavItems, true)}
+        </nav>
+
+        <div className="mt-auto border-t border-border/50 pt-3">
+          {renderUserMenu({
+            compact: true,
+            triggerClassName: "size-10 justify-center px-0 hover:bg-primary/5",
+          })}
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
-      <div className={cn("flex items-center justify-between px-4 py-4", isCollapsed && "justify-center")}>
+    <div className="flex h-full flex-col bg-gradient-to-b from-sidebar via-sidebar to-muted/20 text-sidebar-foreground">
+      <div className="flex items-center justify-between px-4 py-4">
         <button
           type="button"
           onClick={isMobile ? undefined : onToggleCollapse}
           className={cn(
             "flex items-center gap-2 text-left transition-all duration-200 hover:opacity-80 active:scale-95",
-            isCollapsed && "justify-center w-full",
           )}
-          aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          aria-label="Collapse sidebar"
         >
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary/60 shadow-sm shadow-primary/20">
             <Bot className="h-5 w-5 text-primary-foreground" />
@@ -187,11 +248,7 @@ export function AdminSidebar({
             onClick={onToggleCollapse}
             aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
-            {isCollapsed ? (
-              <PanelLeftOpen data-icon="inline-start" />
-            ) : (
-              <PanelLeftClose data-icon="inline-start" />
-            )}
+            <PanelLeftClose data-icon="inline-start" />
           </Button>
         )}
       </div>
