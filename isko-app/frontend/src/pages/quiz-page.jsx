@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import {
-  CheckCircle2,
-  Circle,
-  FileText,
+  PanelRightClose,
+  PanelRightOpen,
   Loader2,
   Plus,
+  SlidersHorizontal,
   Sparkles,
   SquarePen,
   Trash2,
@@ -15,6 +15,7 @@ import { ChatComposer, ChatModelMenu } from "@/components/chat/chat-composer"
 import { ChatNotePicker } from "@/components/chat/chat-note-picker"
 import { ChatEmptyState, ChatThreadView } from "@/components/chat/chat-content"
 import { WorkspaceShell } from "@/components/layout/workspace-shell"
+import { QuizAttemptDialog } from "@/components/quiz/quiz-attempt-dialog"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -27,7 +28,6 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Textarea } from "@/components/ui/textarea"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { useAuth } from "@/context/auth-context"
 import { useChatWorkspace } from "@/hooks/use-chat-workspace"
@@ -50,9 +50,6 @@ const formatLabels = {
   short_answer: "Short answer",
   true_false: "True / false",
 }
-const minimumQuizContextMessages = 2
-const minimumQuizContextCharacters = 120
-const minimumLatestAssistantCharacters = 60
 const recentQuizContextMessageLimit = 12
 
 const difficultyOptions = [
@@ -77,21 +74,14 @@ function getQuizContextState(activeThread, messages) {
     return {
       canGenerate: false,
       description:
-        "Start a Quiz thread by asking a question in chat. Quiz generation unlocks after the assistant responds with enough detail.",
-      errorMessage:
-        "Start a Quiz thread and wait for an assistant explanation before generating a quiz.",
+        "Ask a question in the Quiz chat to generate a saved quiz attempt.",
+      errorMessage: "Ask a question in the Quiz chat before generating a quiz.",
       title: "No active Quiz thread",
     }
   }
 
   const usableMessages = getUsableQuizContextMessages(messages)
-  const assistantMessages = usableMessages.filter((message) => message.role === "assistant")
   const userMessages = usableMessages.filter((message) => message.role === "user")
-  const latestAssistantExplanation =
-    [...assistantMessages]
-      .reverse()
-      .find((message) => message.content.trim().length >= minimumLatestAssistantCharacters)
-      ?.content?.trim() ?? ""
   const totalCharacters = usableMessages.reduce(
     (sum, message) => sum + message.content.trim().length,
     0,
@@ -101,26 +91,19 @@ function getQuizContextState(activeThread, messages) {
     return {
       canGenerate: false,
       description:
-        "Ask a question in this Quiz thread first. The generator uses the saved thread conversation, not only the setup field.",
+        "Ask a question in this Quiz thread first. The quiz generator will use the student prompt and any attached note.",
       errorMessage:
-        "This Quiz thread does not have any saved chat context yet. Ask a question and wait for an assistant response first.",
+        "This Quiz thread does not have any saved prompt yet.",
       title: "No chat context yet",
     }
   }
 
-  if (
-    usableMessages.length < minimumQuizContextMessages ||
-    !assistantMessages.length ||
-    !userMessages.length ||
-    totalCharacters < minimumQuizContextCharacters ||
-    latestAssistantExplanation.length < minimumLatestAssistantCharacters
-  ) {
+  if (!userMessages.length || totalCharacters < 12) {
     return {
       canGenerate: false,
       description:
-        "Add at least one user question and one detailed assistant explanation before generating. The latest assistant reply should contain enough material to turn into questions.",
-      errorMessage:
-        "This Quiz thread needs more discussion before a quiz can be generated. Ask a question and wait for a fuller assistant explanation.",
+        "Add a clearer student prompt before generating a quiz.",
+      errorMessage: "This Quiz thread needs a clearer student prompt before a quiz can be generated.",
       title: "More thread context needed",
     }
   }
@@ -128,7 +111,7 @@ function getQuizContextState(activeThread, messages) {
   return {
     canGenerate: true,
     description:
-      "Questions will be generated from this Quiz thread's recent saved messages, with extra weight on the latest assistant explanation and any attached note.",
+      "Questions will be generated from this Quiz thread's latest student prompt and any attached note.",
     errorMessage: "",
     title: "Quiz context ready",
   }
@@ -136,13 +119,25 @@ function getQuizContextState(activeThread, messages) {
 
 function getAttemptStatusLabel(attempt) {
   if (!attempt) return "Draft"
+  if (attempt.status === "draft") return "Draft"
   if (attempt.status === "graded") return `${Math.round(attempt.score_percent ?? 0)}%`
   if (attempt.status === "submitted") return "Submitted"
   return "Generated"
 }
 
-function getQuestionTypeLabel(value) {
-  return formatLabels[value] ?? value
+function createDraftQuizAttempt({ difficulty, questionCount }) {
+  const now = new Date().toISOString()
+
+  return {
+    created_at: now,
+    difficulty,
+    id: `draft-${crypto.randomUUID()}`,
+    question_count: questionCount,
+    questions: [],
+    status: "draft",
+    title: "New quiz",
+    updated_at: now,
+  }
 }
 
 function normalizeAnswerMap(attempt) {
@@ -221,97 +216,16 @@ function QuizAttemptsList({
   )
 }
 
-function QuestionCard({ answerValue, isGraded, onAnswerChange, question, questionNumber }) {
-  const savedAnswer = question.answer
-  const isCorrect = savedAnswer?.is_correct
-
-  return (
-    <Card className="rounded-lg">
-      <CardHeader>
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="secondary">Question {questionNumber}</Badge>
-          <Badge variant="outline">{getQuestionTypeLabel(question.question_type)}</Badge>
-          {isGraded ? (
-            <Badge variant={isCorrect ? "default" : "destructive"}>
-              {isCorrect ? "Correct" : "Review"}
-            </Badge>
-          ) : null}
-        </div>
-        <CardTitle className="text-sm">{question.prompt}</CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
-        {question.question_type === "short_answer" ? (
-          <Textarea
-            value={answerValue}
-            onChange={(event) => onAnswerChange(question.id, event.target.value)}
-            placeholder="Write your answer"
-            className="min-h-24"
-            disabled={isGraded}
-          />
-        ) : (
-          <div className="grid gap-2">
-            {(question.question_type === "true_false"
-              ? ["True", "False"]
-              : question.choices ?? []
-            ).map((choice) => {
-              const isSelected = answerValue === choice
-
-              return (
-                <button
-                  key={choice}
-                  type="button"
-                  className={cn(
-                    "flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors",
-                    isSelected ? "border-primary/40 bg-primary/10" : "hover:bg-muted/60",
-                  )}
-                  onClick={() => onAnswerChange(question.id, choice)}
-                  disabled={isGraded}
-                >
-                  {isSelected ? (
-                    <CheckCircle2 data-icon="inline-start" />
-                  ) : (
-                    <Circle data-icon="inline-start" />
-                  )}
-                  <span>{choice}</span>
-                </button>
-              )
-            })}
-          </div>
-        )}
-
-        {isGraded ? (
-          <div className="rounded-lg border bg-muted/35 px-3 py-3 text-sm">
-            <div className="font-medium">
-              Score {savedAnswer?.score ?? 0}/{savedAnswer?.max_score ?? 1}
-            </div>
-            {savedAnswer?.feedback ? (
-              <div className="mt-1 text-muted-foreground">{savedAnswer.feedback}</div>
-            ) : null}
-            {question.explanation ? (
-              <div className="mt-2 text-muted-foreground">
-                Explanation: {question.explanation}
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-      </CardContent>
-    </Card>
-  )
-}
-
 function QuizPanel({
   activeAttempt,
-  answers,
   canGenerateQuiz,
   chat,
   difficulty,
   formats,
   hasAvailableModels,
-  handleAnswerChange,
   handleGenerateQuiz,
-  handleSubmitQuiz,
   isGenerating,
-  isGrading,
+  onOpenAttempt,
   questionCount,
   quizContextState,
   setDifficulty,
@@ -326,14 +240,18 @@ function QuizPanel({
         <div className="flex min-h-full flex-col gap-4 p-4">
           <Card className="rounded-lg border-primary/15 bg-gradient-to-br from-card via-card to-muted/40">
             <CardHeader>
-              <div className="flex items-center gap-2">
-                <SquarePen data-icon="inline-start" />
-                <CardTitle>Quiz setup</CardTitle>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <SquarePen data-icon="inline-start" />
+                    <CardTitle>Quiz setup</CardTitle>
+                  </div>
+                  <CardDescription>
+                    Generate from the active Quiz thread. Open settings to adjust
+                    focus, difficulty, question count, and formats.
+                  </CardDescription>
+                </div>
               </div>
-              <CardDescription>
-                Generate a saved quiz from the active Quiz thread. Use the field below
-                only to refine what the quiz should emphasize.
-              </CardDescription>
             </CardHeader>
             <CardContent>
               <form className="flex flex-col gap-4" onSubmit={handleGenerateQuiz}>
@@ -398,32 +316,10 @@ function QuizPanel({
                   <AlertDescription>{quizContextState.description}</AlertDescription>
                 </Alert>
 
-                {chat.attachedNote ? (
-                  <div className="flex items-center justify-between gap-3 rounded-lg border bg-background/70 px-3 py-2">
-                    <div className="min-w-0">
-                      <div className="truncate text-sm font-medium">
-                        {chat.attachedNote.title}
-                      </div>
-                      <div className="truncate text-xs text-muted-foreground">
-                        Attached note
-                      </div>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => chat.setAttachedNote(null)}
-                    >
-                      Remove
-                    </Button>
-                  </div>
-                ) : null}
-
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  <Button type="button" variant="outline" onClick={chat.openNotePicker}>
-                    <FileText data-icon="inline-start" />
-                    {chat.attachedNote ? "Replace note" : "Attach note"}
-                  </Button>
+                  <div className="text-xs text-muted-foreground">
+                    Uses the latest Quiz chat prompt.
+                  </div>
                   <Button
                     type="submit"
                     disabled={
@@ -480,40 +376,34 @@ function QuizPanel({
                 ) : null}
               </Card>
 
-              {activeAttempt.questions.map((question, index) => (
-                <QuestionCard
-                  key={question.id}
-                  answerValue={answers[question.id] ?? ""}
-                  isGraded={activeAttempt.status === "graded"}
-                  onAnswerChange={handleAnswerChange}
-                  question={question}
-                  questionNumber={index + 1}
-                />
-              ))}
-
-              {activeAttempt.status !== "graded" ? (
-                <div className="sticky bottom-4 flex justify-end">
+              <Card className="rounded-lg">
+                <CardContent className="flex flex-col gap-3 py-4">
+                  <p className="text-sm text-muted-foreground">
+                    Questions open in a focused quiz modal so answers stay out of the chat.
+                  </p>
                   <Button
                     type="button"
                     size="lg"
-                    onClick={handleSubmitQuiz}
-                    disabled={isGrading || !hasAvailableModels}
+                    onClick={onOpenAttempt}
+                    disabled={
+                      activeAttempt.status === "draft" ||
+                      (!hasAvailableModels && activeAttempt.status !== "graded")
+                    }
                     className="shadow-lg shadow-primary/20"
                   >
-                    {isGrading ? (
-                      <Loader2 className="animate-spin" data-icon="inline-start" />
-                    ) : (
-                      <CheckCircle2 data-icon="inline-start" />
-                    )}
-                    {isGrading ? "Grading..." : "Submit for grading"}
+                    {activeAttempt.status === "draft"
+                      ? "Ask a question to generate"
+                      : activeAttempt.status === "graded"
+                        ? "Review assessment"
+                        : "Take the quiz"}
                   </Button>
-                </div>
-              ) : null}
+                </CardContent>
+              </Card>
             </div>
           ) : (
             <Card className="rounded-lg">
               <CardContent className="py-10 text-center text-sm text-muted-foreground">
-                Generate a quiz or choose a saved attempt.
+                Ask a question in the Quiz chat or choose a saved attempt.
               </CardContent>
             </Card>
           )}
@@ -537,12 +427,14 @@ function QuizChatWorkspace({
             <ScrollArea className="h-full">
               <ChatThreadView
                 activeThread={chat.activeThread}
-                attachedFiles={[]}
+                attachedFiles={chat.attachedFiles}
                 endOfMessagesRef={chat.endOfMessagesRef}
                 hasSelectedThreadOnce={chat.hasSelectedThreadOnce}
                 isLoadingMessages={chat.isLoadingMessages}
                 messages={chat.messages}
                 onNewChat={chat.createNewChat}
+                onRemoveAttachedFile={chat.removeAttachedFile}
+                removingFileId={chat.removingFileId}
                 streamingMessageId={chat.streamingMessageId}
               />
             </ScrollArea>
@@ -551,29 +443,28 @@ function QuizChatWorkspace({
           <div className="border-t border-border/70 bg-background/88 shadow-[0_-18px_40px_rgba(15,23,42,0.06)] backdrop-blur-xl supports-[backdrop-filter]:bg-background/76">
             <div className="mx-auto w-full max-w-5xl px-4 py-4 sm:px-6 lg:px-8">
               <ChatComposer
-                allowFileAttachments={false}
                 attachedNote={chat.attachedNote}
-                attachedFiles={[]}
+                attachedFiles={chat.attachedFiles}
                 composerNotice={chat.composerNotice}
                 draft={chat.draft}
                 isEphemeral={chat.isEphemeral}
                 isLoadingModels={chat.isLoadingModels}
-                isLoadingAttachedFiles={false}
-                isUploadingFiles={false}
+                isLoadingAttachedFiles={chat.isLoadingAttachedFiles}
+                isUploadingFiles={chat.isUploadingFiles}
                 isUpdatingAttachedNote={chat.isUpdatingAttachedNote}
                 isSending={chat.isSending}
                 isStreaming={chat.isStreamingActiveThread}
                 hasAvailableModels={hasAvailableModels}
                 modelStatusMessage={modelStatusMessage}
-                onAttachFiles={() => undefined}
+                onAttachFiles={chat.attachFiles}
                 onOpenNotePicker={chat.openNotePicker}
                 onKeyDown={chat.handleComposerKeyDown}
                 onPromptClick={chat.setDraft}
-                onRemoveAttachedFile={() => undefined}
+                onRemoveAttachedFile={chat.removeAttachedFile}
                 onRemoveAttachedNote={() => chat.setAttachedNote(null)}
                 onStopStreaming={chat.stopStreaming}
                 onSubmit={chat.sendMessage}
-                removingFileId=""
+                removingFileId={chat.removingFileId}
                 selectedModelLabel={selectedModelLabel}
                 selectedTool={chat.selectedTool}
                 setDraft={chat.setDraft}
@@ -587,30 +478,29 @@ function QuizChatWorkspace({
           <ScrollArea className="h-full">
             <ChatEmptyState selectedModelLabel={selectedModelLabel}>
               <ChatComposer
-                allowFileAttachments={false}
                 attachedNote={chat.attachedNote}
-                attachedFiles={[]}
+                attachedFiles={chat.attachedFiles}
                 composerNotice={chat.composerNotice}
                 draft={chat.draft}
                 isEmptyState
                 isEphemeral={chat.isEphemeral}
                 isLoadingModels={chat.isLoadingModels}
-                isLoadingAttachedFiles={false}
-                isUploadingFiles={false}
+                isLoadingAttachedFiles={chat.isLoadingAttachedFiles}
+                isUploadingFiles={chat.isUploadingFiles}
                 isUpdatingAttachedNote={chat.isUpdatingAttachedNote}
                 isSending={chat.isSending}
                 isStreaming={chat.isStreamingActiveThread}
                 hasAvailableModels={hasAvailableModels}
                 modelStatusMessage={modelStatusMessage}
-                onAttachFiles={() => undefined}
+                onAttachFiles={chat.attachFiles}
                 onOpenNotePicker={chat.openNotePicker}
                 onKeyDown={chat.handleComposerKeyDown}
                 onPromptClick={chat.setDraft}
-                onRemoveAttachedFile={() => undefined}
+                onRemoveAttachedFile={chat.removeAttachedFile}
                 onRemoveAttachedNote={() => chat.setAttachedNote(null)}
                 onStopStreaming={chat.stopStreaming}
                 onSubmit={chat.sendMessage}
-                removingFileId=""
+                removingFileId={chat.removingFileId}
                 selectedModelLabel={selectedModelLabel}
                 selectedTool={chat.selectedTool}
                 setDraft={chat.setDraft}
@@ -628,10 +518,12 @@ export function QuizPage() {
   const { user } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const preferredAttemptId = searchParams.get("attemptId")
-  const chat = useChatWorkspace(user?.id)
   const [attempts, setAttempts] = useState([])
+  const [draftAttempt, setDraftAttempt] = useState(null)
   const [activeAttemptId, setActiveAttemptId] = useState(null)
   const [answers, setAnswers] = useState({})
+  const [isQuizDialogOpen, setIsQuizDialogOpen] = useState(false)
+  const [isQuizPanelOpen, setIsQuizPanelOpen] = useState(true)
   const [topic, setTopic] = useState("")
   const [questionCount, setQuestionCount] = useState(6)
   const [difficulty, setDifficulty] = useState("standard")
@@ -641,9 +533,67 @@ export function QuizPage() {
   const [isGrading, setIsGrading] = useState(false)
   const [pageError, setPageError] = useState("")
 
+  const handleQuizPrompt = useCallback(
+    async ({ attachedNote, content, selectedModelKey, thread }) => {
+      if (!user?.id || !thread?.id || !selectedModelKey || isGenerating) {
+        return
+      }
+
+      setIsGenerating(true)
+      setPageError("")
+
+      const focusHint = topic.trim()
+      const sourcePrompt = content.trim()
+
+      try {
+        const quiz = await generateQuiz({
+          difficulty,
+          formats,
+          model: selectedModelKey,
+          questionCount,
+          sourcePrompt,
+          threadId: thread.id,
+          topic: focusHint || sourcePrompt,
+        })
+        const attempt = await createQuizAttemptWithQuestions({
+          attachedNoteId: attachedNote?.id ?? null,
+          difficulty,
+          formats,
+          questionCount,
+          questions: quiz.questions,
+          threadId: thread.id,
+          title: quiz.title,
+          topic: focusHint || sourcePrompt,
+          userId: user.id,
+        })
+
+        setAttempts((currentAttempts) => [attempt, ...currentAttempts])
+        setDraftAttempt(null)
+        setActiveAttemptId(attempt.id)
+        setSearchParams({ attemptId: attempt.id }, { replace: true })
+        setAnswers(normalizeAnswerMap(attempt))
+        setIsQuizDialogOpen(true)
+      } catch (error) {
+        setPageError(getErrorMessage(error))
+      } finally {
+        setIsGenerating(false)
+      }
+    },
+    [difficulty, formats, isGenerating, questionCount, setSearchParams, topic, user?.id],
+  )
+
+  const chat = useChatWorkspace(user?.id, null, {
+    onQuizPrompt: handleQuizPrompt,
+  })
+
+  const visibleAttempts = useMemo(
+    () => (draftAttempt ? [draftAttempt, ...attempts] : attempts),
+    [attempts, draftAttempt],
+  )
+
   const activeAttempt = useMemo(
-    () => attempts.find((attempt) => attempt.id === activeAttemptId) ?? null,
-    [activeAttemptId, attempts],
+    () => visibleAttempts.find((attempt) => attempt.id === activeAttemptId) ?? null,
+    [activeAttemptId, visibleAttempts],
   )
   const selectedTool = chat.selectedTool
   const setChatSelectedTool = chat.setSelectedTool
@@ -715,14 +665,23 @@ export function QuizPage() {
 
   const handleSelectAttempt = (attemptId) => {
     setActiveAttemptId(attemptId)
-    setSearchParams({ attemptId }, { replace: true })
+    if (attemptId.startsWith("draft-")) {
+      setSearchParams({}, { replace: true })
+    } else {
+      setSearchParams({ attemptId }, { replace: true })
+    }
   }
 
   const handleNewQuiz = () => {
-    setActiveAttemptId(null)
+    const nextDraftAttempt = createDraftQuizAttempt({ difficulty, questionCount })
+
+    setDraftAttempt(nextDraftAttempt)
+    setActiveAttemptId(nextDraftAttempt.id)
     setSearchParams({}, { replace: true })
     setAnswers({})
     setPageError("")
+    setIsQuizPanelOpen(true)
+    chat.createNewChat()
   }
 
   const handleGenerateQuiz = async (event) => {
@@ -740,7 +699,7 @@ export function QuizPage() {
     }
 
     if (!chat.activeThread?.id) {
-      setPageError("Start a Quiz thread and wait for an assistant explanation before generating a quiz.")
+      setPageError("Ask a question in the Quiz chat before generating a quiz.")
       return
     }
 
@@ -752,6 +711,11 @@ export function QuizPage() {
     setIsGenerating(true)
     setPageError("")
     const focusHint = topic.trim()
+    const sourcePrompt =
+      [...chat.messages]
+        .reverse()
+        .find((message) => message.role === "user")
+        ?.content?.trim() ?? ""
 
     try {
       const quiz = await generateQuiz({
@@ -759,8 +723,9 @@ export function QuizPage() {
         formats,
         model: chat.selectedModelKey,
         questionCount,
+        sourcePrompt,
         threadId: chat.activeThread.id,
-        topic: focusHint,
+        topic: focusHint || sourcePrompt,
       })
       const attempt = await createQuizAttemptWithQuestions({
         attachedNoteId:
@@ -773,14 +738,16 @@ export function QuizPage() {
         questions: quiz.questions,
         threadId: chat.activeThread.id,
         title: quiz.title,
-        topic: focusHint,
+        topic: focusHint || sourcePrompt,
         userId: user.id,
       })
 
       setAttempts((currentAttempts) => [attempt, ...currentAttempts])
+      setDraftAttempt(null)
       setActiveAttemptId(attempt.id)
       setSearchParams({ attemptId: attempt.id }, { replace: true })
       setAnswers(normalizeAnswerMap(attempt))
+      setIsQuizDialogOpen(true)
     } catch (error) {
       setPageError(getErrorMessage(error))
     } finally {
@@ -796,7 +763,13 @@ export function QuizPage() {
   }
 
   const handleSubmitQuiz = async () => {
-    if (!user?.id || !activeAttempt || !chat.selectedModelKey || isGrading) {
+    if (
+      !user?.id ||
+      !activeAttempt ||
+      activeAttempt.status === "draft" ||
+      !chat.selectedModelKey ||
+      isGrading
+    ) {
       return
     }
 
@@ -853,6 +826,17 @@ export function QuizPage() {
   }
 
   const handleArchiveAttempt = async (attemptId) => {
+    if (attemptId.startsWith("draft-")) {
+      setDraftAttempt((currentDraft) =>
+        currentDraft?.id === attemptId ? null : currentDraft,
+      )
+      if (attemptId === activeAttemptId) {
+        setActiveAttemptId(null)
+        setSearchParams({}, { replace: true })
+      }
+      return
+    }
+
     if (!user?.id) return
 
     try {
@@ -916,15 +900,18 @@ export function QuizPage() {
           <div className="ml-auto flex items-center gap-2">
             <Button
               type="button"
-              variant="outline"
+              variant={isQuizPanelOpen ? "ghost" : "outline"}
               size="sm"
-              onClick={chat.openNotePicker}
-              disabled={chat.isUpdatingAttachedNote}
+              onClick={() => setIsQuizPanelOpen((isOpen) => !isOpen)}
+              aria-label={isQuizPanelOpen ? "Collapse quiz settings sidebar" : "Open quiz settings sidebar"}
+              title={isQuizPanelOpen ? "Collapse quiz settings" : "Quiz settings"}
             >
-              <FileText data-icon="inline-start" />
-              <span className="hidden sm:inline">
-                {chat.attachedNote ? chat.attachedNote.title : "Attach note"}
-              </span>
+              {isQuizPanelOpen ? (
+                <PanelRightClose data-icon="inline-start" />
+              ) : (
+                <SlidersHorizontal data-icon="inline-start" />
+              )}
+              <span className="hidden sm:inline">Quiz settings</span>
             </Button>
           </div>
         </div>
@@ -938,7 +925,7 @@ export function QuizPage() {
       sidebarContent={
         <QuizAttemptsList
           activeAttemptId={activeAttemptId}
-          attempts={attempts}
+          attempts={visibleAttempts}
           isLoading={isLoadingAttempts}
           onArchiveAttempt={handleArchiveAttempt}
           onSelectAttempt={handleSelectAttempt}
@@ -952,27 +939,40 @@ export function QuizPage() {
           modelStatusMessage={modelStatusMessage}
           selectedModelLabel={chat.selectedModelLabel}
         />
-        <QuizPanel
-          activeAttempt={activeAttempt}
-          answers={answers}
-          canGenerateQuiz={canGenerateQuiz}
-          chat={chat}
-          difficulty={difficulty}
-          formats={formats}
-          handleAnswerChange={handleAnswerChange}
-          handleGenerateQuiz={handleGenerateQuiz}
-          handleSubmitQuiz={handleSubmitQuiz}
-          hasAvailableModels={hasAvailableModels}
-          isGenerating={isGenerating}
-          isGrading={isGrading}
-          questionCount={questionCount}
-          quizContextState={quizContextState}
-          setDifficulty={setDifficulty}
-          setFormats={setFormats}
-          setQuestionCount={setQuestionCount}
-          setTopic={setTopic}
-          topic={topic}
-        />
+        {isQuizPanelOpen ? (
+          <QuizPanel
+            activeAttempt={activeAttempt}
+            canGenerateQuiz={canGenerateQuiz}
+            chat={chat}
+            difficulty={difficulty}
+            formats={formats}
+            handleGenerateQuiz={handleGenerateQuiz}
+            hasAvailableModels={hasAvailableModels}
+            isGenerating={isGenerating}
+            onOpenAttempt={() => setIsQuizDialogOpen(true)}
+            questionCount={questionCount}
+            quizContextState={quizContextState}
+            setDifficulty={setDifficulty}
+            setFormats={setFormats}
+            setQuestionCount={setQuestionCount}
+            setTopic={setTopic}
+            topic={topic}
+          />
+        ) : (
+          <aside className="flex border-t bg-background p-3 lg:w-14 lg:border-l lg:border-t-0">
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="mx-auto"
+              onClick={() => setIsQuizPanelOpen(true)}
+              aria-label="Open quiz settings sidebar"
+              title="Quiz settings"
+            >
+              <PanelRightOpen data-icon="inline-start" />
+            </Button>
+          </aside>
+        )}
       </div>
 
       <ChatNotePicker
@@ -982,6 +982,15 @@ export function QuizPage() {
         onSelectNote={handleSelectNote}
         open={chat.isNotePickerOpen}
         selectedNoteId={chat.attachedNote?.id ?? ""}
+      />
+      <QuizAttemptDialog
+        answers={answers}
+        attempt={activeAttempt}
+        isGrading={isGrading}
+        onAnswerChange={handleAnswerChange}
+        onOpenChange={setIsQuizDialogOpen}
+        onSubmitQuiz={handleSubmitQuiz}
+        open={isQuizDialogOpen}
       />
     </WorkspaceShell>
   )

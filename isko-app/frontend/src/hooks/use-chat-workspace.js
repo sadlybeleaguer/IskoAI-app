@@ -68,7 +68,7 @@ function isAbortError(error) {
   return error instanceof DOMException && error.name === "AbortError"
 }
 
-export function useChatWorkspace(userId, preferredThreadId = null) {
+export function useChatWorkspace(userId, preferredThreadId = null, options = {}) {
   const [threads, setThreads] = useState([])
   const [folders, setFolders] = useState([])
   const [archivedThreads, setArchivedThreads] = useState([])
@@ -111,6 +111,7 @@ export function useChatWorkspace(userId, preferredThreadId = null) {
   const streamingThreadIdRef = useRef("")
   const streamAbortControllerRef = useRef(null)
   const attachmentUpdatePromiseRef = useRef(null)
+  const handleQuizPromptRef = useRef(options.onQuizPrompt)
 
   const activeThread = useMemo(
     () =>
@@ -213,6 +214,10 @@ export function useChatWorkspace(userId, preferredThreadId = null) {
   useEffect(() => {
     activeThreadIdRef.current = activeThreadId
   }, [activeThreadId])
+
+  useEffect(() => {
+    handleQuizPromptRef.current = options.onQuizPrompt
+  }, [options.onQuizPrompt])
 
   useEffect(() => {
     streamingThreadIdRef.current = streamingThreadId
@@ -1189,6 +1194,64 @@ export function useChatWorkspace(userId, preferredThreadId = null) {
       return
     }
 
+    if (selectedTool === "Quiz") {
+      setIsSending(true)
+      setPageError("")
+      setDraft("")
+      setComposerNotice("")
+
+      try {
+        await flushPendingAttachmentUpdate()
+
+        let threadRecord = activeThread
+
+        if (!threadRecord) {
+          threadRecord = await createChatThread({
+            attachedNoteId: attachedNote?.id ?? null,
+            selectedTool,
+            userId,
+            title: getThreadTitle(content),
+          })
+
+          upsertThreadState(threadRecord)
+          activeThreadIdRef.current = threadRecord.id
+          setActiveThreadId(threadRecord.id)
+          setMessages([])
+        }
+
+        const userMessage = await createChatMessage({
+          threadId: threadRecord.id,
+          userId,
+          role: "user",
+          content,
+        })
+
+        if (activeThreadIdRef.current === threadRecord.id || !activeThreadIdRef.current) {
+          setMessages((currentMessages) => [...currentMessages, userMessage])
+        }
+
+        upsertThreadState(threadRecord, userMessage.created_at)
+
+        if (handleQuizPromptRef.current) {
+          await handleQuizPromptRef.current({
+            attachedNote,
+            content,
+            selectedModelKey,
+            thread: threadRecord,
+            userMessage,
+          })
+        } else {
+          setComposerNotice("Quiz prompt saved. Open the Quiz page to generate an attempt.")
+        }
+      } catch (error) {
+        setPageError(getErrorMessage(error))
+      } finally {
+        setIsSending(false)
+      }
+
+      return
+    }
+
     const abortController = new AbortController()
     let persistTimeoutId = null
     let persistInFlight = null
@@ -1504,7 +1567,8 @@ export function useChatWorkspace(userId, preferredThreadId = null) {
     isLoadingAttachedFiles,
     isLoadingAvailableNotes,
     isLoadingFolders,
-    isLoadingFolderFiles: (folderId) => loadingFolderFilesId === folderId,
+    isLoadingFolderFiles: (folderId) =>
+      Boolean(folderId) && loadingFolderFilesId === folderId,
     isLoadingMessages,
     isLoadingModels,
     isLoadingThreads,
@@ -1513,7 +1577,8 @@ export function useChatWorkspace(userId, preferredThreadId = null) {
     isSending,
     isStreamingActiveThread,
     isUploadingFiles,
-    isUploadingFolderFiles: (folderId) => isUploadingFolderId === folderId,
+    isUploadingFolderFiles: (folderId) =>
+      Boolean(folderId) && isUploadingFolderId === folderId,
     isUpdatingAttachedNote,
     isEphemeral,
     loadAvailableNotes,

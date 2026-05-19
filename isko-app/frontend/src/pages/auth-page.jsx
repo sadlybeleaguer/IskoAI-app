@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react"
 import { Link, useLocation, useNavigate } from "react-router-dom"
-import { ArrowRight, Eye, EyeOff, KeyRound } from "lucide-react"
+import { ArrowRight, Eye, EyeOff } from "lucide-react"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -13,7 +13,6 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Separator } from "@/components/ui/separator"
 import { ShineBorder } from "@/components/ui/shine-border"
 import { useAuth } from "@/context/auth-context"
 import { envVariableHints, supabase } from "@/lib/supabaseClient"
@@ -189,29 +188,6 @@ function PasswordField({
   )
 }
 
-function GoogleMark(props) {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" {...props}>
-      <path
-        d="M21.64 12.2c0-.68-.06-1.33-.17-1.95H12v3.69h5.41a4.63 4.63 0 0 1-2.01 3.04v2.53h3.25c1.9-1.75 2.99-4.31 2.99-7.31Z"
-        fill="#4285F4"
-      />
-      <path
-        d="M12 22c2.7 0 4.96-.89 6.62-2.41l-3.25-2.53c-.89.6-2.03.96-3.37.96-2.59 0-4.79-1.75-5.57-4.1H3.09v2.61A9.98 9.98 0 0 0 12 22Z"
-        fill="#34A853"
-      />
-      <path
-        d="M6.43 13.92a5.94 5.94 0 0 1 0-3.82V7.49H3.09a9.98 9.98 0 0 0 0 8.94l3.34-2.51Z"
-        fill="#FBBC04"
-      />
-      <path
-        d="M12 5.98c1.47 0 2.79.51 3.84 1.49l2.87-2.87C16.95 2.98 14.69 2 12 2a9.98 9.98 0 0 0-8.91 5.49l3.34 2.61c.78-2.35 2.98-4.12 5.57-4.12Z"
-        fill="#EA4335"
-      />
-    </svg>
-  )
-}
-
 function getErrorMessage(error) {
   if (error instanceof Error) {
     return error.message
@@ -289,38 +265,6 @@ export function AuthPage({ mode }) {
         [field]: message,
       }
     })
-  }
-
-  const handleGoogleSignIn = async () => {
-    if (!supabase) {
-      setFeedback({
-        type: "error",
-        message: "Add your Supabase URL and publishable key before using the auth flow.",
-      })
-      return
-    }
-
-    setIsSubmitting(true)
-    setFeedback({ type: "", message: "" })
-
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: `${window.location.origin}/`,
-        },
-      })
-
-      if (error) {
-        throw error
-      }
-    } catch (error) {
-      setFeedback({
-        type: "error",
-        message: getErrorMessage(error),
-      })
-      setIsSubmitting(false)
-    }
   }
 
   const handleSubmit = async (event) => {
@@ -425,9 +369,6 @@ export function AuthPage({ mode }) {
           <Card className="relative border-white/60 bg-white/82 py-0 shadow-[0_30px_120px_-44px_rgba(15,23,42,0.55)] backdrop-blur dark:border-white/10 dark:bg-black/40">
             <ShineBorder shineColor={["#A07CFE", "#FE8FB5", "#FFBE7B"]} />
             <CardHeader className="gap-3 border-b border-border/70 px-6 py-6">
-              <div className="inline-flex size-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20">
-                <KeyRound className="size-5" />
-              </div>
               <div className="space-y-2">
                 <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">
                   {copy.eyebrow}
@@ -583,29 +524,6 @@ export function AuthPage({ mode }) {
                   <ArrowRight className="size-4" />
                 </Button>
               </form>
-
-              <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <Separator className="flex-1" />
-                  <span className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                    Or continue with
-                  </span>
-                  <Separator className="flex-1" />
-                </div>
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-11 w-full rounded-2xl border-border/70 bg-background/80"
-                  disabled={isSubmitting || !isConfigured}
-                  onClick={() => void handleGoogleSignIn()}
-                >
-                  <GoogleMark className="size-4" />
-                  Continue with Google
-                </Button>
-              </div>
-
-              <Separator />
 
               <p className="text-sm text-muted-foreground">
                 {copy.alternateLabel}{" "}

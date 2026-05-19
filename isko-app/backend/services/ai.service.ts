@@ -185,6 +185,13 @@ export function getToolInstruction(selectedTool: string) {
         "If the user asks which tool is active, answer that the current tool is Complex Problems.",
         "Break the problem into parts, reason explicitly about tradeoffs, and end with concrete next steps.",
       ].join(" ")
+    case "Quiz":
+      return [
+        "Current tool: Quiz.",
+        "You are operating in Quiz tool mode for this thread.",
+        "If the user asks which tool is active, answer that the current tool is Quiz.",
+        "Create assessment questions instead of explaining the answer directly.",
+      ].join(" ")
     default:
       return ""
   }

@@ -25,6 +25,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { AuroraText } from "@/components/ui/aurora-text"
+import { Pointer } from "@/components/ui/pointer"
 
 const featureGroups = [
   {
@@ -288,7 +289,7 @@ function ProductPreview() {
 
 export default function LandingPage() {
   return (
-    <main className="relative isolate min-h-screen overflow-hidden bg-background text-foreground">
+    <main className="relative isolate min-h-screen overflow-hidden bg-background text-foreground [@media(pointer:coarse)]:cursor-auto">
       <div
         aria-hidden="true"
         className="absolute inset-0 -z-20 bg-[linear-gradient(135deg,rgba(59,130,246,0.12),rgba(255,255,255,0.7)_32%,rgba(16,185,129,0.1)_64%,rgba(251,146,60,0.1)),linear-gradient(180deg,rgba(255,255,255,0.8),rgba(248,250,252,0.98))] dark:bg-[linear-gradient(135deg,rgba(59,130,246,0.18),rgba(15,23,42,0.8)_32%,rgba(16,185,129,0.1)_64%,rgba(251,146,60,0.12)),linear-gradient(180deg,rgba(2,6,23,0.96),rgba(15,23,42,1))]"
@@ -631,6 +632,33 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
+      <Pointer>
+        <svg
+          aria-hidden="true"
+          className="h-6 w-6 rotate-[-70deg] drop-shadow-[0_6px_14px_rgba(37,99,235,0.35)]"
+          fill="url(#isko-pointer-gradient)"
+          stroke="white"
+          strokeWidth="1.2"
+          viewBox="0 0 16 16"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <defs>
+            <linearGradient
+              id="isko-pointer-gradient"
+              x1="2"
+              x2="14"
+              y1="2"
+              y2="14"
+              gradientUnits="userSpaceOnUse"
+            >
+              <stop stopColor="#2563eb" />
+              <stop offset="0.52" stopColor="#3b82f6" />
+              <stop offset="1" stopColor="#93c5fd" />
+            </linearGradient>
+          </defs>
+          <path d="M14.082 2.182a.5.5 0 0 1 .103.557L8.528 15.467a.5.5 0 0 1-.917-.007L5.57 10.694.803 8.652a.5.5 0 0 1-.006-.916l12.728-5.657a.5.5 0 0 1 .556.103z" />
+        </svg>
+      </Pointer>
     </main>
   )
 }

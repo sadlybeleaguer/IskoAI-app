@@ -6,6 +6,7 @@ import { ChatMarkdown } from "@/components/chat/chat-markdown"
 import { AuroraText } from "@/components/ui/aurora-text"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { useAuth } from "@/context/auth-context"
 import { cn } from "@/utils/cn"
 
 const streamingStatusSteps = ["Thinking", "Working through it", "Finishing up"]
@@ -23,6 +24,16 @@ function getGreetingByHour(date = new Date()) {
   }
 
   return "Good evening"
+}
+
+function getDisplayName(profile, userEmail) {
+  const fullName = profile?.full_name?.trim()
+
+  if (fullName) {
+    return fullName.split(/\s+/)[0]
+  }
+
+  return userEmail?.split("@")[0] || "there"
 }
 
 function AssistantStreamingStatus() {
@@ -193,7 +204,9 @@ export function ChatThreadView({
 }
 
 export function ChatEmptyState({ children }) {
+  const { profile, userEmail } = useAuth()
   const greeting = getGreetingByHour()
+  const displayName = getDisplayName(profile, userEmail)
 
   return (
     <div className="mx-auto flex min-h-full w-full max-w-6xl flex-col justify-center px-4 py-10 sm:px-6 lg:px-8">
@@ -204,7 +217,7 @@ export function ChatEmptyState({ children }) {
               <Brain className="size-5" />
             </span>
             <AuroraText colors={auroraTextColors} speed={0.75}>
-              {greeting}
+              {`${greeting}, ${displayName}.`}
             </AuroraText>
           </div>
           <p className="text-sm text-muted-foreground">Welcome back to IskoAI</p>

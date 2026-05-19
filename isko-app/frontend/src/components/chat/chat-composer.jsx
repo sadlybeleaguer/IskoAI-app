@@ -5,7 +5,6 @@ import {
   BrainCircuit,
   ChevronDown,
   FileText,
-  Mic,
   Paperclip,
   Plus,
   Square,
@@ -90,6 +89,7 @@ export function ChatModelMenu({
 
 export function ChatComposer({
   allowFileAttachments = true,
+  allowNoteAttachments = true,
   attachedNote,
   attachedFiles = [],
   composerNotice,
@@ -118,6 +118,7 @@ export function ChatComposer({
   setSelectedTool,
 }) {
   const fileInputRef = useRef(null)
+  const canAttachContext = allowFileAttachments || allowNoteAttachments
 
   return (
     <form
@@ -166,38 +167,42 @@ export function ChatComposer({
         <div className="flex items-center justify-between gap-3 border-t px-4 py-3 text-sm">
           <div className="flex min-w-0 items-center gap-3">
             <div className="flex items-center gap-1 text-muted-foreground">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label="More actions"
-                    disabled={isEphemeral}
-                  >
-                    <Plus data-icon="inline-start" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-48">
-                  <DropdownMenuLabel>Attach</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuGroup>
-                    {allowFileAttachments ? (
-                      <DropdownMenuItem
-                        onSelect={() => fileInputRef.current?.click()}
-                        disabled={isUploadingFiles}
-                      >
-                        <Paperclip data-icon="inline-start" />
-                        {isUploadingFiles ? "Uploading files..." : "Upload files"}
-                      </DropdownMenuItem>
-                    ) : null}
-                    <DropdownMenuItem onSelect={onOpenNotePicker}>
-                      <FileText data-icon="inline-start" />
-                      {attachedNote ? "Replace attached note" : "Attach notes"}
-                    </DropdownMenuItem>
-                  </DropdownMenuGroup>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              {canAttachContext ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label="More actions"
+                      disabled={isEphemeral}
+                    >
+                      <Plus data-icon="inline-start" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-48">
+                    <DropdownMenuLabel>Attach</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuGroup>
+                      {allowFileAttachments ? (
+                        <DropdownMenuItem
+                          onSelect={() => fileInputRef.current?.click()}
+                          disabled={isUploadingFiles}
+                        >
+                          <Paperclip data-icon="inline-start" />
+                          {isUploadingFiles ? "Uploading files..." : "Upload files"}
+                        </DropdownMenuItem>
+                      ) : null}
+                      {allowNoteAttachments ? (
+                        <DropdownMenuItem onSelect={onOpenNotePicker}>
+                          <FileText data-icon="inline-start" />
+                          {attachedNote ? "Replace attached note" : "Attach notes"}
+                        </DropdownMenuItem>
+                      ) : null}
+                    </DropdownMenuGroup>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : null}
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -242,7 +247,7 @@ export function ChatComposer({
                       Files {attachedFiles.length}
                     </span>
                   ) : null}
-                  {attachedNote ? (
+                  {allowNoteAttachments && attachedNote ? (
                     <span className="truncate">
                       Note {attachedNote.title}
                     </span>
@@ -253,9 +258,6 @@ export function ChatComposer({
           </div>
 
           <div className="flex items-center gap-1">
-            <Button type="button" variant="ghost" size="icon-sm" disabled>
-              <Mic data-icon="inline-start" />
-            </Button>
             {isStreaming ? (
               <Button
                 type="button"
@@ -306,7 +308,7 @@ export function ChatComposer({
         </div>
       ) : null}
 
-      {attachedNote ? (
+      {allowNoteAttachments && attachedNote ? (
         <div className="flex items-center justify-between gap-3 rounded-lg border bg-background px-3 py-2">
           <div className="min-w-0">
             {isUpdatingAttachedNote ? (

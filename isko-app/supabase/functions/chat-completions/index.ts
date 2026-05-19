@@ -17,7 +17,7 @@ import {
   createOpenAICompatibleStream,
 } from "../_shared/ai.service.ts"
 
-const ALLOWED_TOOLS = new Set(["", "Math", "Programming", "Complex Problems"])
+const ALLOWED_TOOLS = new Set(["", "Math", "Programming", "Complex Problems", "Quiz"])
 const MAX_ATTACHED_FILE_CONTEXT_CHARACTERS = 30000
 const MAX_ATTACHED_FILE_CONTEXT_PER_FILE = 12000
 
@@ -133,6 +133,26 @@ function isMissingThreadFileSchemaError(error: { code?: string; message?: string
     error?.code === "PGRST204" ||
     error?.code === "PGRST205" ||
     /relation .*chat_thread_files.* does not exist|column .*error_message.* does not exist|could not find the table/i.test(
+      error?.message ?? "",
+    )
+  )
+}
+
+function isMissingThreadFolderSchemaError(error: { code?: string; message?: string } | null) {
+  return (
+    error?.code === "PGRST204" ||
+    error?.code === "PGRST205" ||
+    /column .*folder_id.* does not exist|could not find the table|relation .* does not exist/i.test(
+      error?.message ?? "",
+    )
+  )
+}
+
+function isMissingFolderFileSchemaError(error: { code?: string; message?: string } | null) {
+  return (
+    error?.code === "PGRST204" ||
+    error?.code === "PGRST205" ||
+    /relation .*chat_folder_files.* does not exist|column .*error_message.* does not exist|could not find the table/i.test(
       error?.message ?? "",
     )
   )
@@ -335,30 +355,76 @@ async function resolveAttachedNoteContext(
   }
 }
 
-async function resolveAttachedFileContexts(
+async function resolveThreadFolderId(
   supabase: SupabaseClient,
   threadId: string,
-): Promise<AttachedFileContext[]> {
+): Promise<string | null> {
   const { data, error } = await supabase
-    .from("chat_thread_files")
-    .select("original_name, extracted_text")
-    .eq("thread_id", threadId)
-    .eq("status", "ready")
-    .order("created_at", { ascending: true })
-    .returns<Array<{ extracted_text: string; original_name: string }>>()
+    .from("chat_threads")
+    .select("folder_id")
+    .eq("id", threadId)
+    .maybeSingle<{ folder_id: string | null }>()
 
   if (error) {
-    if (isMissingThreadFileSchemaError(error)) {
+    if (isMissingThreadFolderSchemaError(error)) {
+      return null
+    }
+
+    throw new HttpError(500, error.message)
+  }
+
+  return data?.folder_id ?? null
+}
+
+type AttachedFileRow = {
+  extracted_text: string
+  original_name: string
+}
+
+async function listAttachedFileRows(
+  supabase: SupabaseClient,
+  relation: "chat_folder_files" | "chat_thread_files",
+  column: "folder_id" | "thread_id",
+  value: string,
+): Promise<AttachedFileRow[]> {
+  const { data, error } = await supabase
+    .from(relation)
+    .select("original_name, extracted_text")
+    .eq(column, value)
+    .eq("status", "ready")
+    .order("created_at", { ascending: true })
+    .returns<AttachedFileRow[]>()
+
+  if (error) {
+    if (
+      (relation === "chat_thread_files" && isMissingThreadFileSchemaError(error)) ||
+      (relation === "chat_folder_files" && isMissingFolderFileSchemaError(error))
+    ) {
       return []
     }
 
     throw new HttpError(500, error.message)
   }
 
+  return data ?? []
+}
+
+async function resolveAttachedFileContexts(
+  supabase: SupabaseClient,
+  threadId: string,
+  folderId: string | null,
+): Promise<AttachedFileContext[]> {
+  const [folderFiles, threadFiles] = await Promise.all([
+    folderId
+      ? listAttachedFileRows(supabase, "chat_folder_files", "folder_id", folderId)
+      : Promise.resolve([]),
+    listAttachedFileRows(supabase, "chat_thread_files", "thread_id", threadId),
+  ])
+
   let remainingCharacters = MAX_ATTACHED_FILE_CONTEXT_CHARACTERS
   const attachedFiles: AttachedFileContext[] = []
 
-  for (const file of data ?? []) {
+  for (const file of [...folderFiles, ...threadFiles]) {
     if (remainingCharacters <= 0) {
       break
     }
@@ -411,8 +477,9 @@ Deno.serve(async (request: Request) => {
     const modelConfig = await resolveModelConfig(supabase, model)
     const providerConfig = getProviderConfig(modelConfig.provider)
     const latestUserPrompt = getLatestUserPrompt(messages)
+    const folderId = await resolveThreadFolderId(supabase, threadId)
     const attachedNoteContext = await resolveAttachedNoteContext(supabase, threadId)
-    const attachedFileContexts = await resolveAttachedFileContexts(supabase, threadId)
+    const attachedFileContexts = await resolveAttachedFileContexts(supabase, threadId, folderId)
 
     const body = isPlaceholderMode(providerConfig)
       ? createPlaceholderStream(providerConfig, modelConfig.key, latestUserPrompt)
