@@ -1,5 +1,12 @@
 import { useState } from "react"
-import { ChevronDown, ChevronRight, MoreVertical, Edit2, Trash2 } from "lucide-react"
+import {
+  ChevronDown,
+  ChevronRight,
+  Edit2,
+  MoreVertical,
+  Settings2,
+  Trash2,
+} from "lucide-react"
 
 import {
   DropdownMenu,
@@ -14,6 +21,7 @@ export function ChatFolderItem({
   children,
   folder,
   onDelete,
+  onOpenSettings,
   onUpdate,
   updatingFolderId,
 }) {
@@ -26,7 +34,10 @@ export function ChatFolderItem({
   const handleUpdate = (e) => {
     e?.preventDefault()
     if (newTitle.trim() && newTitle !== folder.title) {
-      onUpdate(folder.id, newTitle.trim())
+      onUpdate({
+        folderId: folder.id,
+        title: newTitle.trim(),
+      })
     }
     setIsEditing(false)
   }
@@ -76,6 +87,10 @@ export function ChatFolderItem({
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-40">
+              <DropdownMenuItem onClick={() => onOpenSettings(folder)}>
+                <Settings2 className="mr-2 size-3.5" />
+                <span>Folder settings</span>
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setIsEditing(true)}>
                 <Edit2 className="mr-2 size-3.5" />
                 <span>Rename</span>

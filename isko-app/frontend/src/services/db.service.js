@@ -18,10 +18,37 @@ function requireClient() {
 }
 
 function isMissingRelationError(error) {
+  const errorText = [error?.message, error?.details, error?.hint]
+    .filter(Boolean)
+    .join(" ")
+
   return (
     error?.code === "PGRST205" ||
-    /could not find the table|relation .* does not exist/i.test(
-      error?.message ?? "",
+    ((error?.status === 404 || error?.statusCode === 404) &&
+      /table|relation|schema cache/i.test(errorText)) ||
+    /could not find the table|relation .* does not exist/i.test(errorText)
+  )
+}
+
+function isMissingColumnError(error, columnName) {
+  if (!error) return false
+
+  const errorText = [error.message, error.details, error.hint]
+    .filter(Boolean)
+    .join(" ")
+
+  const isGenericMissingColumn =
+    error.code === "PGRST204" ||
+    /column .* does not exist|could not find .* in the schema cache/i.test(
+      errorText,
+    )
+
+  if (!columnName) return isGenericMissingColumn
+
+  return (
+    error.code === "PGRST204" ||
+    new RegExp(`column .*${columnName}.* does not exist|could not find .*${columnName}.* in the schema cache`, "i").test(
+      errorText,
     )
   )
 }
@@ -33,6 +60,21 @@ function isMissingRpcError(error) {
       error?.message ?? "",
     )
   )
+}
+
+const quizRelationAvailability = {
+  activeQuizAttempts: null,
+  quizAnswers: null,
+  quizAttempts: null,
+  quizQuestions: null,
+}
+
+function markQuizRelationAvailability(key, isAvailable) {
+  quizRelationAvailability[key] = isAvailable
+}
+
+function isQuizRelationKnownMissing(key) {
+  return quizRelationAvailability[key] === false
 }
 
 let refreshSessionPromise = null
@@ -269,8 +311,10 @@ export const acceptedChatFileExtensions = [
 ]
 export const acceptedChatFileInputAccept = acceptedChatFileExtensions.join(",")
 
-const chatFileSelect =
+const chatThreadFileSelect =
   "id, thread_id, user_id, original_name, mime_type, size_bytes, status, error_message, created_at, updated_at"
+const chatFolderFileSelect =
+  "id, folder_id, user_id, original_name, mime_type, size_bytes, status, error_message, created_at, updated_at"
 
 async function invokeChatFileRequest(accessToken, body) {
   const headers = {
@@ -323,6 +367,49 @@ async function invokeChatFileMutation(body) {
   return result ?? {}
 }
 
+async function invokeQuizFunction(functionName, body) {
+  if (!supabaseUrl || !supabaseKey || !supabase) {
+    throw new Error("Supabase environment variables are missing.")
+  }
+
+  const currentSession = await getCurrentSession()
+
+  if (!currentSession?.access_token) {
+    throw new Error("You must be signed in to use quizzes.")
+  }
+
+  const invokeRequest = (accessToken) =>
+    fetch(`${supabaseUrl}/functions/v1/${functionName}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: supabaseKey,
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(body),
+    })
+
+  let response = await invokeRequest(currentSession.access_token)
+
+  if (response.status === 401 && currentSession.refresh_token) {
+    const refreshedSession = await refreshAccessToken(currentSession.refresh_token)
+    response = await invokeRequest(refreshedSession.access_token)
+  }
+
+  const result = await response.json().catch(() => null)
+
+  if (!response.ok) {
+    const message =
+      result && typeof result === "object" && "error" in result
+        ? result.error
+        : `Unable to complete the quiz request. (${response.status})`
+
+    throw new Error(message)
+  }
+
+  return result ?? {}
+}
+
 function normalizeExtension(fileName) {
   const match = /\.([^.]+)$/.exec(fileName ?? "")
   return match ? `.${match[1].toLowerCase()}` : ""
@@ -359,7 +446,7 @@ export async function listChatThreadFiles(userId, threadId) {
 
   const { data, error } = await client
     .from("chat_thread_files")
-    .select(chatFileSelect)
+    .select(chatThreadFileSelect)
     .eq("user_id", userId)
     .eq("thread_id", threadId)
     .order("created_at", { ascending: true })
@@ -378,6 +465,7 @@ export async function listChatThreadFiles(userId, threadId) {
 export async function uploadChatFileAttachment({ file, threadId }) {
   const formData = new FormData()
   formData.append("action", "upload")
+  formData.append("target", "thread")
   formData.append("threadId", threadId)
   formData.append("file", file)
 
@@ -394,6 +482,54 @@ export async function removeChatFileAttachment({ fileId }) {
   const result = await invokeChatFileMutation({
     action: "delete",
     fileId,
+    target: "thread",
+  })
+
+  return result?.fileId ?? fileId
+}
+
+export async function listChatFolderFiles(userId, folderId) {
+  const client = requireClient()
+
+  const { data, error } = await client
+    .from("chat_folder_files")
+    .select(chatFolderFileSelect)
+    .eq("user_id", userId)
+    .eq("folder_id", folderId)
+    .order("created_at", { ascending: true })
+
+  if (isMissingRelationError(error)) {
+    return []
+  }
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return data ?? []
+}
+
+export async function uploadChatFolderFile({ file, folderId }) {
+  const formData = new FormData()
+  formData.append("action", "upload")
+  formData.append("target", "folder")
+  formData.append("folderId", folderId)
+  formData.append("file", file)
+
+  const result = await invokeChatFileMutation(formData)
+
+  if (!result?.file) {
+    throw new Error("The upload response was missing the file record.")
+  }
+
+  return result.file
+}
+
+export async function removeChatFolderFile({ fileId }) {
+  const result = await invokeChatFileMutation({
+    action: "delete",
+    fileId,
+    target: "folder",
   })
 
   return result?.fileId ?? fileId
@@ -474,12 +610,21 @@ export async function listChatFolders(userId) {
   return data ?? []
 }
 
-export async function createChatFolder({ title, userId }) {
+export async function createChatFolder({
+  attachedNoteId = null,
+  selectedTool = "",
+  systemPrompt = "",
+  title,
+  userId,
+}) {
   const client = requireClient()
 
   const { data, error } = await client
     .from("chat_folders")
     .insert({
+      attached_note_id: attachedNoteId,
+      selected_tool: selectedTool,
+      system_prompt: systemPrompt,
       title,
       user_id: userId,
     })
@@ -493,14 +638,36 @@ export async function createChatFolder({ title, userId }) {
   return data
 }
 
-export async function updateChatFolder({ folderId, title, userId }) {
+export async function updateChatFolder({
+  attachedNoteId,
+  folderId,
+  selectedTool,
+  systemPrompt,
+  title,
+  userId,
+}) {
   const client = requireClient()
+  const updates = {}
+
+  if (typeof attachedNoteId !== "undefined") {
+    updates.attached_note_id = attachedNoteId
+  }
+
+  if (typeof selectedTool !== "undefined") {
+    updates.selected_tool = selectedTool
+  }
+
+  if (typeof systemPrompt !== "undefined") {
+    updates.system_prompt = systemPrompt
+  }
+
+  if (typeof title !== "undefined") {
+    updates.title = title
+  }
 
   const { data, error } = await client
     .from("chat_folders")
-    .update({
-      title,
-    })
+    .update(updates)
     .eq("id", folderId)
     .eq("user_id", userId)
     .select(folderSelect)
@@ -782,6 +949,447 @@ export async function listAvailableChatModels() {
   }
 
   return data ?? []
+}
+
+// --- Quiz Service Logic ---
+
+const quizAttemptSelect =
+  "id, user_id, thread_id, title, topic, difficulty, question_count, formats, attached_note_id, attached_note_title, status, score_points, max_score_points, score_percent, summary_feedback, archived_at, created_at, updated_at"
+const legacyQuizAttemptSelect =
+  "id, user_id, title, topic, difficulty, question_count, formats, attached_note_id, attached_note_title, status, score_points, max_score_points, score_percent, summary_feedback, archived_at, created_at, updated_at"
+const minimalQuizAttemptSelect =
+  "id, user_id, title, status, archived_at, created_at, updated_at"
+const quizQuestionSelect =
+  "id, attempt_id, user_id, question_type, prompt, choices, expected_answer, explanation, sort_order, created_at, updated_at"
+const quizAnswerSelect =
+  "id, attempt_id, question_id, user_id, answer, is_correct, score, max_score, feedback, created_at, updated_at"
+
+function mergeQuizRecords(attempts, questions, answers) {
+  const questionsByAttemptId = new Map()
+  const answersByQuestionId = new Map()
+
+  for (const answer of answers) {
+    answersByQuestionId.set(answer.question_id, answer)
+  }
+
+  for (const question of questions) {
+    const nextQuestion = {
+      ...question,
+      answer: answersByQuestionId.get(question.id) ?? null,
+    }
+
+    if (!questionsByAttemptId.has(question.attempt_id)) {
+      questionsByAttemptId.set(question.attempt_id, [])
+    }
+
+    questionsByAttemptId.get(question.attempt_id).push(nextQuestion)
+  }
+
+  return attempts.map((attempt) => ({
+    ...attempt,
+    questions: questionsByAttemptId.get(attempt.id) ?? [],
+  }))
+}
+
+export async function listQuizAttempts(userId) {
+  const client = requireClient()
+  let attempts = []
+  let loadedAttempts = false
+
+  if (!isQuizRelationKnownMissing("activeQuizAttempts")) {
+    const selects = [
+      quizAttemptSelect,
+      legacyQuizAttemptSelect,
+      minimalQuizAttemptSelect,
+    ]
+    let lastError = null
+
+    for (const select of selects) {
+      const { data, error } = await client
+        .from("active_quiz_attempts")
+        .select(select)
+        .eq("user_id", userId)
+        .order("updated_at", { ascending: false })
+
+      if (!error) {
+        markQuizRelationAvailability("activeQuizAttempts", true)
+        attempts = data ?? []
+        loadedAttempts = true
+        break
+      }
+
+      lastError = error
+      if (!isMissingColumnError(error)) {
+        break
+      }
+    }
+
+    if (!loadedAttempts) {
+      if (isMissingRelationError(lastError)) {
+        markQuizRelationAvailability("activeQuizAttempts", false)
+      } else if (lastError) {
+        // If it's not a missing relation, it might be a broken view.
+        // We'll let it fall through to the table fallback.
+      }
+    }
+  }
+
+  if (!loadedAttempts) {
+    if (isQuizRelationKnownMissing("quizAttempts")) {
+      return []
+    }
+
+    const selects = [
+      quizAttemptSelect,
+      legacyQuizAttemptSelect,
+      minimalQuizAttemptSelect,
+    ]
+    let lastError = null
+
+    for (const select of selects) {
+      const { data, error } = await client
+        .from("quiz_attempts")
+        .select(select)
+        .eq("user_id", userId)
+        .is("archived_at", null)
+        .order("updated_at", { ascending: false })
+
+      if (!error) {
+        markQuizRelationAvailability("quizAttempts", true)
+        attempts = data ?? []
+        loadedAttempts = true
+        break
+      }
+
+      lastError = error
+      if (!isMissingColumnError(error)) {
+        break
+      }
+    }
+
+    if (!loadedAttempts) {
+      if (isMissingRelationError(lastError)) {
+        markQuizRelationAvailability("quizAttempts", false)
+        return []
+      }
+
+      if (lastError) {
+        throw new Error(lastError.message)
+      }
+    }
+  }
+
+  if (!attempts.length) {
+    return []
+  }
+
+  const attemptIds = attempts.map((attempt) => attempt.id)
+  const [questionsResult, answersResult] = await Promise.all(
+    [
+      isQuizRelationKnownMissing("quizQuestions")
+        ? null
+        : client
+            .from("quiz_questions")
+            .select(quizQuestionSelect)
+            .in("attempt_id", attemptIds)
+            .order("sort_order", { ascending: true }),
+      isQuizRelationKnownMissing("quizAnswers")
+        ? null
+        : client
+            .from("quiz_answers")
+            .select(quizAnswerSelect)
+            .in("attempt_id", attemptIds),
+    ].map((result) => Promise.resolve(result)),
+  )
+
+  if (questionsResult?.error) {
+    if (isMissingRelationError(questionsResult.error)) {
+      markQuizRelationAvailability("quizQuestions", false)
+      return attempts.map((attempt) => ({ ...attempt, questions: [] }))
+    }
+
+    throw new Error(questionsResult.error.message)
+  }
+
+  if (questionsResult) {
+    markQuizRelationAvailability("quizQuestions", true)
+  }
+
+  if (answersResult?.error) {
+    if (isMissingRelationError(answersResult.error)) {
+      markQuizRelationAvailability("quizAnswers", false)
+      return mergeQuizRecords(attempts, questionsResult?.data ?? [], [])
+    }
+
+    throw new Error(answersResult.error.message)
+  }
+
+  if (answersResult) {
+    markQuizRelationAvailability("quizAnswers", true)
+  }
+
+  return mergeQuizRecords(
+    attempts,
+    questionsResult?.data ?? [],
+    answersResult?.data ?? [],
+  )
+}
+
+export async function generateQuiz(payload) {
+  const result = await invokeQuizFunction("quiz-generate", payload)
+
+  if (!result?.quiz) {
+    throw new Error("The quiz generator response was missing quiz data.")
+  }
+
+  return result.quiz
+}
+
+export async function createQuizAttemptWithQuestions({
+  attachedNoteId = null,
+  difficulty,
+  formats,
+  questions,
+  questionCount,
+  threadId = null,
+  title,
+  topic,
+  userId,
+}) {
+  const client = requireClient()
+  const attemptPayload = {
+    attached_note_id: attachedNoteId,
+    difficulty,
+    formats,
+    question_count: questionCount,
+    status: "generated",
+    thread_id: threadId,
+    title,
+    topic,
+    user_id: userId,
+  }
+
+  const selects = [
+    quizAttemptSelect,
+    legacyQuizAttemptSelect,
+    minimalQuizAttemptSelect,
+  ]
+  let attempt = null
+  let attemptError = null
+
+  for (const select of selects) {
+    let currentPayload = { ...attemptPayload }
+
+    // If we've already seen that thread_id is missing, or if we're on a legacy/minimal select,
+    // we should strip thread_id from the payload too.
+    if (
+      (attemptError && isMissingColumnError(attemptError, "thread_id")) ||
+      select !== quizAttemptSelect
+    ) {
+      delete currentPayload.thread_id
+    }
+
+    const { data, error } = await client
+      .from("quiz_attempts")
+      .insert(currentPayload)
+      .select(select)
+      .single()
+
+    if (!error) {
+      attempt = data
+      attemptError = null
+      break
+    }
+
+    attemptError = error
+    if (!isMissingColumnError(error)) {
+      break
+    }
+  }
+
+  if (attemptError) {
+    throw new Error(attemptError.message)
+  }
+
+  const questionRows = questions.map((question, index) => ({
+    attempt_id: attempt.id,
+    choices: question.choices ?? [],
+    explanation: question.explanation ?? "",
+    expected_answer: question.expectedAnswer ?? "",
+    prompt: question.prompt,
+    question_type: question.type,
+    sort_order: index,
+    user_id: userId,
+  }))
+
+  const { data: savedQuestions, error: questionsError } = await client
+    .from("quiz_questions")
+    .insert(questionRows)
+    .select(quizQuestionSelect)
+
+  if (questionsError) {
+    throw new Error(questionsError.message)
+  }
+
+  return {
+    ...attempt,
+    questions: (savedQuestions ?? []).map((question) => ({
+      ...question,
+      answer: null,
+    })),
+  }
+}
+
+export async function saveQuizAnswers({ answers, attemptId, userId }) {
+  const client = requireClient()
+  const rows = answers.map((answer) => ({
+    answer: answer.answer ?? "",
+    attempt_id: attemptId,
+    max_score: 1,
+    question_id: answer.questionId,
+    user_id: userId,
+  }))
+
+  if (!rows.length) {
+    return []
+  }
+
+  const { data, error } = await client
+    .from("quiz_answers")
+    .upsert(rows, { onConflict: "attempt_id,question_id" })
+    .select(quizAnswerSelect)
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  const { error: attemptError } = await client
+    .from("quiz_attempts")
+    .update({ status: "submitted" })
+    .eq("id", attemptId)
+    .eq("user_id", userId)
+
+  if (attemptError) {
+    throw new Error(attemptError.message)
+  }
+
+  return data ?? []
+}
+
+export async function gradeQuiz(payload) {
+  const result = await invokeQuizFunction("quiz-grade", payload)
+
+  if (!result?.grades) {
+    throw new Error("The quiz grader response was missing grading data.")
+  }
+
+  return result.grades
+}
+
+export async function applyQuizGrades({ attemptId, grades, userId }) {
+  const client = requireClient()
+  const answerRows = grades.answers.map((answer) => ({
+    attempt_id: attemptId,
+    feedback: answer.feedback ?? "",
+    is_correct: Boolean(answer.isCorrect),
+    max_score: answer.maxScore ?? 1,
+    question_id: answer.questionId,
+    score: answer.score ?? 0,
+    user_id: userId,
+  }))
+
+  const { data: answers, error: answersError } = await client
+    .from("quiz_answers")
+    .upsert(answerRows, { onConflict: "attempt_id,question_id" })
+    .select(quizAnswerSelect)
+
+  if (answersError) {
+    throw new Error(answersError.message)
+  }
+
+  const updateFields = {
+    max_score_points: grades.maxScorePoints,
+    score_percent: grades.scorePercent,
+    score_points: grades.scorePoints,
+    status: "graded",
+    summary_feedback: grades.summaryFeedback ?? "",
+  }
+
+  const selects = [
+    quizAttemptSelect,
+    legacyQuizAttemptSelect,
+    minimalQuizAttemptSelect,
+  ]
+  let attempt = null
+  let attemptError = null
+
+  for (const select of selects) {
+    const { data, error } = await client
+      .from("quiz_attempts")
+      .update(updateFields)
+      .eq("id", attemptId)
+      .eq("user_id", userId)
+      .select(select)
+      .single()
+
+    if (!error) {
+      attempt = data
+      attemptError = null
+      break
+    }
+
+    attemptError = error
+    if (!isMissingColumnError(error)) {
+      break
+    }
+  }
+
+  if (attemptError) {
+    throw new Error(attemptError.message)
+  }
+
+  return { answers: answers ?? [], attempt }
+}
+
+export async function archiveQuizAttempt({ attemptId, userId }) {
+  const client = requireClient()
+  const selects = [
+    quizAttemptSelect,
+    legacyQuizAttemptSelect,
+    minimalQuizAttemptSelect,
+  ]
+  let data = null
+  let error = null
+
+  for (const select of selects) {
+    const result = await client
+      .from("quiz_attempts")
+      .update({
+        archived_at: new Date().toISOString(),
+        status: "archived",
+      })
+      .eq("id", attemptId)
+      .eq("user_id", userId)
+      .select(select)
+      .single()
+
+    if (!result.error) {
+      data = result.data
+      error = null
+      break
+    }
+
+    error = result.error
+    if (!isMissingColumnError(error)) {
+      break
+    }
+  }
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return data
 }
 
 // --- Notes Service Logic ---

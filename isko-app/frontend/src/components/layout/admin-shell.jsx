@@ -1,6 +1,6 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Menu } from "lucide-react"
-import { useNavigate } from "react-router-dom"
+import { useLocation, useNavigate } from "react-router-dom"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { SettingsDialog } from "@/components/settings/settings-dialog"
@@ -9,6 +9,16 @@ import { AdminSidebar } from "@/components/layout/admin-sidebar"
 import { supabase } from "@/lib/supabaseClient"
 import { getErrorMessage } from "@/utils/errors"
 
+const adminCollapseStorageKey = "isko-admin-sidebar-collapsed"
+
+function getStoredCollapseState() {
+  if (typeof window === "undefined") {
+    return false
+  }
+
+  return window.localStorage.getItem(adminCollapseStorageKey) === "true"
+}
+
 export function AdminShell({
   alerts,
   children,
@@ -16,12 +26,24 @@ export function AdminShell({
   headerContent,
   userEmail,
 }) {
+  const location = useLocation()
   const navigate = useNavigate()
   const [isNavOpen, setIsNavOpen] = useState(false)
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(getStoredCollapseState)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [signOutError, setSignOutError] = useState("")
   const [isSigningOut, setIsSigningOut] = useState(false)
+
+  useEffect(() => {
+    window.localStorage.setItem(
+      adminCollapseStorageKey,
+      String(isSidebarCollapsed),
+    )
+  }, [isSidebarCollapsed])
+
+  useEffect(() => {
+    setIsNavOpen(false)
+  }, [location.pathname])
 
   const handleSignOut = async () => {
     if (!supabase) {
@@ -48,7 +70,7 @@ export function AdminShell({
 
   return (
     <div
-      className="min-h-screen bg-background text-foreground"
+      className="h-svh bg-background text-foreground"
       style={{
         "--admin-sidebar-width": isSidebarCollapsed ? "4.5rem" : "15.5rem",
         "--admin-sidebar-drawer-width": "clamp(15rem, 82vw, 16rem)",
@@ -70,11 +92,11 @@ export function AdminShell({
       {isNavOpen ? (
         <>
           <div
-            className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+            className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden"
             onClick={() => setIsNavOpen(false)}
           />
           <aside
-            className="fixed inset-y-0 left-0 z-50 w-[var(--admin-sidebar-drawer-width)] border-r bg-sidebar lg:hidden"
+            className="fixed inset-y-0 left-0 z-50 w-[var(--admin-sidebar-drawer-width)] border-r border-border/50 bg-sidebar shadow-xl shadow-black/10 lg:hidden"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="h-svh">
@@ -92,8 +114,8 @@ export function AdminShell({
         </>
       ) : null}
 
-      <div className="min-h-screen min-w-0 lg:pl-[var(--admin-sidebar-width)] transition-[padding] duration-300 ease-in-out">
-        <div className="min-w-0">
+      <div className="min-h-0 min-w-0 lg:pl-[var(--admin-sidebar-width)] transition-[padding] duration-300 ease-in-out">
+        <div className="flex min-h-0 min-w-0 flex-col">
           <header className="sticky top-0 z-20 border-b bg-background">
             <div className="flex items-center gap-3 px-4 py-3 sm:px-6">
               <Button
@@ -113,8 +135,8 @@ export function AdminShell({
             </div>
           </header>
 
-          <main className="flex min-h-[calc(100svh-3.5rem)] min-w-0 flex-col">
-            <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-5 px-4 py-5 sm:px-6 lg:px-8">
+          <main className="flex h-[calc(100svh-3.5rem)] min-h-0 min-w-0 flex-col">
+            <div className="mx-auto flex min-h-0 w-full max-w-7xl flex-1 flex-col gap-5 px-4 py-5 sm:px-6 lg:px-8">
               {signOutError ? (
                 <Alert variant="destructive">
                   <AlertTitle>Sign-out failed</AlertTitle>

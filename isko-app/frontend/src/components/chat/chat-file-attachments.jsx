@@ -21,7 +21,9 @@ function formatFileSize(sizeBytes = 0) {
   return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-function getStatusCopy(status) {
+function getStatusCopy(status, scope) {
+  const contextLabel = scope === "folder" ? "folder" : "thread"
+
   switch (status) {
     case "failed":
       return {
@@ -37,16 +39,23 @@ function getStatusCopy(status) {
         label: "Processing",
         tone: "text-amber-600",
       }
+    case "queued":
+      return {
+        description: "This file will upload when the folder is created.",
+        icon: LoaderCircle,
+        label: "Queued",
+        tone: "text-muted-foreground",
+      }
     case "ready":
       return {
-        description: "Ready for this thread's chat context.",
+        description: `Ready for this ${contextLabel}'s chat context.`,
         icon: CheckCircle2,
         label: "Ready",
         tone: "text-emerald-600",
       }
     default:
       return {
-        description: "Uploading to this thread.",
+        description: `Uploading to this ${contextLabel}.`,
         icon: LoaderCircle,
         label: "Uploading",
         tone: "text-muted-foreground",
@@ -55,9 +64,11 @@ function getStatusCopy(status) {
 }
 
 export function ChatFileAttachments({
+  description = "Files stay attached to this thread until you remove them.",
   files,
   onRemove,
   removingFileId = "",
+  scope = "thread",
   title = "Attached files",
 }) {
   if (!files?.length) {
@@ -69,13 +80,13 @@ export function ChatFileAttachments({
       <div className="border-b px-3 py-2">
         <div className="text-sm font-medium">{title}</div>
         <div className="text-xs text-muted-foreground">
-          Files stay attached to this thread until you remove them.
+          {description}
         </div>
       </div>
 
       <div className="flex flex-col divide-y">
         {files.map((file) => {
-          const status = getStatusCopy(file.status)
+          const status = getStatusCopy(file.status, scope)
           const StatusIcon = status.icon
           const isRemoving = removingFileId === file.id
           const canRemove = typeof onRemove === "function"
@@ -106,7 +117,9 @@ export function ChatFileAttachments({
                         <StatusIcon
                           className={cn(
                             "size-3.5",
-                            file.status === "processing" || file.status === "uploading"
+                            file.status === "processing" ||
+                              file.status === "uploading" ||
+                              file.status === "queued"
                               ? "animate-spin"
                               : "",
                           )}
