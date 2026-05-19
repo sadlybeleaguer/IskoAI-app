@@ -298,7 +298,7 @@ export function ChatPage() {
             {initials}
           </span>
           <span className="min-w-0 flex-1 truncate text-left">{displayName}</span>
-          <MoreHorizontal data-icon="inline-end" />
+          < MoreHorizontal data-icon="inline-end" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">

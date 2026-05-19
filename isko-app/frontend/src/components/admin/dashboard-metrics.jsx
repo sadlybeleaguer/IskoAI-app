@@ -7,6 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
 
 const items = [
   {
@@ -39,7 +40,7 @@ const items = [
   },
 ]
 
-export function DashboardMetrics({ stats }) {
+export function DashboardMetrics({ isLoading = false, stats }) {
   return (
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
       {items.map((item) => {
@@ -63,9 +64,13 @@ export function DashboardMetrics({ stats }) {
               </div>
             </CardHeader>
             <CardContent className="px-5 pb-4 pt-0">
-              <p className="text-3xl font-semibold tracking-tight">
-                {stats[item.key]}
-              </p>
+              {isLoading ? (
+                <Skeleton className="h-9 w-16" />
+              ) : (
+                <p className="text-3xl font-semibold tracking-tight">
+                  {stats[item.key]}
+                </p>
+              )}
             </CardContent>
           </Card>
         )

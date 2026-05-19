@@ -7,6 +7,7 @@ import { ChatWorkspaceShellPage } from "@/pages/chat-workspace-shell-page"
 import { DashboardPage } from "@/pages/dashboard-page"
 import { NotesLibraryPage } from "@/pages/notes-library-page"
 import { NotesEditorPage } from "@/pages/notes-page"
+import { QuizPage } from "@/pages/quiz-page"
 import { AccessDeniedScreen } from "@/components/access-denied-screen"
 import { LoadingScreen } from "@/components/loading-screen"
 import { useAuth } from "@/context/auth-context"
@@ -96,7 +97,7 @@ function HomeRedirect() {
   }
 
   if (!isConfigured || !session) {
-    return <Navigate to="/sign-in" replace />
+    return <LandingPage />
   }
 
   return <Navigate to={isSuperadmin ? "/dashboard" : "/chat"} replace />
@@ -108,9 +109,7 @@ export function AppRouter() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<LandingPage />} />
         <Route path="/" element={<HomeRedirect />} />
-        
 
         {/* Guest Routes */}
         <Route element={<GuestOnlyRoute />}>
@@ -124,7 +123,7 @@ export function AppRouter() {
           <Route path="/notes" element={<NotesLibraryPage />} />
           <Route path="/notes/:noteId" element={<NotesEditorPage />} />
           <Route path="/calendar" element={<CalendarPage />} />
-          
+          <Route path="/quiz" element={<QuizPage />} />
         </Route>
 
         {/* Admin Only Routes */}

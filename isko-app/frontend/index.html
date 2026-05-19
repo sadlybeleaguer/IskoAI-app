@@ -5,6 +5,19 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>isko-app</title>
+    <script>
+      ;(() => {
+        const storedMode = window.localStorage.getItem("isko-theme-mode")
+        const mode = ["light", "dark", "system"].includes(storedMode)
+          ? storedMode
+          : "system"
+        const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches
+        const resolvedTheme = mode === "system" ? (prefersDark ? "dark" : "light") : mode
+
+        document.documentElement.classList.toggle("dark", resolvedTheme === "dark")
+        document.documentElement.style.colorScheme = resolvedTheme
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>

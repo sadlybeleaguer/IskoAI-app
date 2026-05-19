@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { NotesEmptyStateCard } from "@/components/notes/notes-empty-state"
 import { WorkspaceShell } from "@/components/layout/workspace-shell"
+import { Skeleton } from "@/components/ui/skeleton"
 import { useAuth } from "@/context/auth-context"
 import { createNote, listNotes } from "@/services/db.service"
 import { getErrorMessage } from "@/utils/errors"
@@ -35,6 +36,28 @@ function NotesLibraryCard({ note, onOpenNote }) {
 
       <ChevronRight className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
     </button>
+  )
+}
+
+function NotesLibrarySkeleton() {
+  return (
+    <div className="grid gap-3" role="status" aria-label="Loading notes">
+      {Array.from({ length: 5 }).map((_, index) => (
+        <div key={index} className="rounded-lg border bg-background px-4 py-4">
+          <div className="flex items-start justify-between gap-4">
+            <div className="grid min-w-0 flex-1 gap-3">
+              <Skeleton className="h-4 w-2/5" />
+              <Skeleton className="h-3 w-24" />
+              <div className="grid gap-2 pt-1">
+                <Skeleton className="h-3 w-11/12" />
+                <Skeleton className="h-3 w-7/12" />
+              </div>
+            </div>
+            <Skeleton className="size-4 shrink-0 rounded-sm" />
+          </div>
+        </div>
+      ))}
+    </div>
   )
 }
 
@@ -115,9 +138,13 @@ export function NotesLibraryPage() {
       headerContent={
         <div className="min-w-0">
           <div className="truncate text-sm font-medium">Notes</div>
-          <div className="truncate text-xs text-muted-foreground">
-            {isLoading ? "Loading notes..." : `${notes.length} notes`}
-          </div>
+          {isLoading ? (
+            <Skeleton className="mt-1 h-3 w-20" />
+          ) : (
+            <div className="truncate text-xs text-muted-foreground">
+              {notes.length} notes
+            </div>
+          )}
         </div>
       }
       pageKey="notes"
@@ -131,14 +158,7 @@ export function NotesLibraryPage() {
       <div className="flex min-h-0 flex-1 flex-col bg-[radial-gradient(circle_at_top,_rgba(15,23,42,0.035),_transparent_52%)]">
         <div className="mx-auto flex w-full max-w-5xl min-h-0 flex-1 flex-col px-4 py-6 sm:px-6 lg:px-10">
           {isLoading ? (
-            <div className="grid gap-3">
-              {Array.from({ length: 4 }).map((_, index) => (
-                <div
-                  key={index}
-                  className="h-28 rounded-lg border bg-muted/30"
-                />
-              ))}
-            </div>
+            <NotesLibrarySkeleton />
           ) : notes.length ? (
             <div className="grid gap-3">
               {notes.map((note) => (

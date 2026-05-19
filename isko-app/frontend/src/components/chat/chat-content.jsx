@@ -1,11 +1,26 @@
 import { useEffect, useState } from "react"
-import { MessageSquarePlus, Sparkles } from "lucide-react"
+import { Brain, MessageSquarePlus, Sparkles } from "lucide-react"
 
 import { ChatFileAttachments } from "@/components/chat/chat-file-attachments"
 import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/utils/cn"
 
 const streamingStatusSteps = ["Thinking", "Working through it", "Finishing up"]
+
+function getGreetingByHour(date = new Date()) {
+  const hour = date.getHours()
+
+  if (hour < 12) {
+    return "Good morning"
+  }
+
+  if (hour < 18) {
+    return "Good afternoon"
+  }
+
+  return "Good evening"
+}
 
 function AssistantStreamingStatus() {
   const [statusIndex, setStatusIndex] = useState(0)
@@ -42,10 +57,41 @@ function AssistantStreamingStatus() {
   )
 }
 
+function ChatMessagesSkeleton() {
+  return (
+    <div
+      className="grid gap-5"
+      role="status"
+      aria-live="polite"
+      aria-label="Loading conversation"
+    >
+      <span className="sr-only">Loading conversation...</span>
+      <div className="flex justify-start">
+        <div className="grid w-full max-w-3xl gap-2">
+          <Skeleton className="h-3 w-20" />
+          <Skeleton className="h-4 w-11/12" />
+          <Skeleton className="h-4 w-8/12" />
+        </div>
+      </div>
+      <div className="flex justify-end">
+        <Skeleton className="h-14 w-3/5 max-w-2xl rounded-[1.35rem]" />
+      </div>
+      <div className="flex justify-start">
+        <div className="grid w-full max-w-3xl gap-2">
+          <Skeleton className="h-4 w-10/12" />
+          <Skeleton className="h-4 w-9/12" />
+          <Skeleton className="h-4 w-6/12" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function ChatThreadView({
   activeThread,
   attachedFiles = [],
   endOfMessagesRef,
+  hasSelectedThreadOnce = false,
   isEphemeral = false,
   isLoadingMessages,
   messages,
@@ -92,9 +138,7 @@ export function ChatThreadView({
         />
       ) : null}
 
-      {isLoadingMessages ? (
-        <p className="text-sm text-muted-foreground">Loading conversation...</p>
-      ) : null}
+      {!hasSelectedThreadOnce && isLoadingMessages ? <ChatMessagesSkeleton /> : null}
 
       {messages.map((message) => {
         const isStreaming = Boolean(
@@ -145,18 +189,20 @@ export function ChatThreadView({
   )
 }
 
-export function ChatEmptyState({ children, selectedModelLabel }) {
+export function ChatEmptyState({ children }) {
+  const greeting = getGreetingByHour()
+
   return (
     <div className="mx-auto flex min-h-full w-full max-w-6xl flex-col justify-center px-4 py-10 sm:px-6 lg:px-8">
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-8">
         <div className="flex flex-col items-center gap-3 text-center">
           <div className="flex items-center gap-3 text-3xl font-medium tracking-tight">
-            <span className="flex size-10 items-center justify-center rounded-full border">
-              <Sparkles className="size-5" />
+            <span className="flex size-11 items-center justify-center rounded-full border bg-primary/8 text-primary shadow-sm shadow-primary/10">
+              <Brain className="size-5" />
             </span>
-            {selectedModelLabel || "No models available"}
+            {greeting}
           </div>
-          <p className="text-sm text-muted-foreground">Workspace model</p>
+          <p className="text-sm text-muted-foreground">Welcome back to IskoAI</p>
         </div>
 
         {children}

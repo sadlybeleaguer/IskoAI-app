@@ -1,6 +1,5 @@
-import { Archive, RefreshCcw, Search, Trash2, UserCog } from "lucide-react"
+import { Archive, RefreshCcw, Search, Trash2 } from "lucide-react"
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -11,6 +10,9 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Skeleton } from "@/components/ui/skeleton"
+import { cn } from "@/lib/utils"
 
 function formatDate(value) {
   if (!value) {
@@ -70,9 +72,38 @@ function FilterSelect({ id, value, onChange, options }) {
   )
 }
 
+function UserListSkeleton() {
+  return (
+    <div className="grid gap-3" role="status" aria-label="Loading user profiles">
+      {Array.from({ length: 4 }).map((_, index) => (
+        <div key={index} className="rounded-lg border bg-background p-4">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+            <div className="grid flex-1 gap-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <Skeleton className="h-5 w-40" />
+                <Skeleton className="h-7 w-20 rounded-md" />
+                <Skeleton className="h-7 w-16 rounded-md" />
+              </div>
+              <div className="grid gap-2">
+                <Skeleton className="h-4 w-64 max-w-full" />
+                <Skeleton className="h-4 w-48 max-w-full" />
+                <Skeleton className="h-4 w-52 max-w-full" />
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Skeleton className="h-9 w-16 rounded-lg" />
+              <Skeleton className="h-9 w-20 rounded-lg" />
+              <Skeleton className="h-9 w-24 rounded-lg" />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export function UserListPanel({
   currentUserId,
-  feedback,
   filteredUsers,
   isLoadingUsers,
   isSubmitting,
@@ -84,15 +115,135 @@ export function UserListPanel({
   roleFilter,
   roleOptions,
   searchTerm,
+  selectedUserId,
   setRoleFilter,
   setSearchTerm,
   setStatusFilter,
   statusFilter,
   statusOptions,
-  usersError,
 }) {
+  const listContent = (
+    <>
+      {isLoadingUsers ? <UserListSkeleton /> : null}
+
+      {!isLoadingUsers && !filteredUsers.length ? (
+        <div className="rounded-lg border border-dashed px-5 py-10 text-center text-sm text-muted-foreground">
+          No users matched the current filters.
+        </div>
+      ) : null}
+
+      {!isLoadingUsers &&
+        filteredUsers.map((user) => {
+          const isSelf = user.id === currentUserId
+          const isArchived = user.status === "archived"
+          const isSelected = selectedUserId === user.id
+
+          const handleCardKeyDown = (event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault()
+              onEdit(user)
+            }
+          }
+
+          const handleActionClick = (callback) => (event) => {
+            event.stopPropagation()
+            callback(user)
+          }
+
+          return (
+            <div
+              key={user.id}
+              role="button"
+              tabIndex={0}
+              aria-pressed={isSelected}
+              onClick={() => onEdit(user)}
+              onKeyDown={handleCardKeyDown}
+              className={cn(
+                "rounded-lg border bg-background p-4 transition-colors outline-none",
+                "cursor-pointer hover:border-primary/35 hover:bg-muted/20 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30",
+                isSelected && "border-primary/40 bg-primary/5 ring-1 ring-primary/15",
+              )}
+            >
+              <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                <div className="flex flex-col gap-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="text-base font-medium">
+                      {user.full_name || "No name set"}
+                    </h2>
+                    <RoleBadge value={user.role} />
+                    <StatusBadge value={user.status} />
+                    {isSelf ? (
+                      <span className="inline-flex items-center rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary ring-1 ring-primary/20">
+                        Current session
+                      </span>
+                    ) : null}
+                    <span
+                      className={cn(
+                        "inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1",
+                        isSelected
+                          ? "bg-primary/10 text-primary ring-primary/20"
+                          : "bg-muted text-muted-foreground ring-border",
+                      )}
+                    >
+                      {isSelected ? "Editing" : "Click to edit"}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col gap-1 text-sm text-muted-foreground">
+                    <p>{user.email}</p>
+                    <p>Created {formatDate(user.created_at)}</p>
+                    <p>Updated {formatDate(user.updated_at)}</p>
+                    {user.archived_at ? (
+                      <p>Archived {formatDate(user.archived_at)}</p>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {isArchived ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleActionClick(onRestore)}
+                      disabled={isSubmitting}
+                    >
+                      <RefreshCcw data-icon="inline-start" />
+                      Restore
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleActionClick(onArchive)}
+                      disabled={isSubmitting || isSelf}
+                    >
+                      <Archive data-icon="inline-start" />
+                      Archive
+                    </Button>
+                  )}
+
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    onClick={handleActionClick(onDelete)}
+                    disabled={isSubmitting || isSelf}
+                  >
+                    <Trash2 data-icon="inline-start" />
+                    Delete
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )
+        })}
+    </>
+  )
+
   return (
-    <Card className="py-0 shadow-[0_1px_2px_rgba(15,23,42,0.08)]">
+    <Card className="py-0 shadow-[0_1px_2px_rgba(15,23,42,0.08)] xl:flex xl:h-full xl:min-h-0 xl:flex-col">
       <CardHeader className="gap-4 border-b px-5 py-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
@@ -104,7 +255,7 @@ export function UserListPanel({
           </div>
           <div className="flex flex-wrap gap-3">
             <div className="flex items-center px-1 text-sm text-muted-foreground">
-              {filteredUsers.length} shown
+              {isLoadingUsers ? <Skeleton className="h-4 w-16" /> : `${filteredUsers.length} shown`}
             </div>
             <Button
               type="button"
@@ -156,117 +307,16 @@ export function UserListPanel({
         </div>
       </CardHeader>
 
-      <CardContent className="flex flex-col gap-4 px-5 py-5">
-        {feedback.message ? (
-          <Alert variant={feedback.type === "error" ? "destructive" : "default"}>
-            <AlertTitle>
-              {feedback.type === "error" ? "Request failed" : "Success"}
-            </AlertTitle>
-            <AlertDescription>{feedback.message}</AlertDescription>
-          </Alert>
-        ) : null}
+      <CardContent className="px-5 py-5 xl:flex xl:min-h-0 xl:flex-1 xl:flex-col">
+        <div className="flex flex-col gap-4 xl:hidden">
+          {listContent}
+        </div>
 
-        {usersError ? (
-          <Alert variant="destructive">
-            <AlertTitle>Unable to load users</AlertTitle>
-            <AlertDescription>{usersError}</AlertDescription>
-          </Alert>
-        ) : null}
-
-        {isLoadingUsers ? (
-          <div className="rounded-lg border border-dashed px-5 py-10 text-center text-sm text-muted-foreground">
-            Loading user profiles...
+        <ScrollArea className="hidden xl:block xl:min-h-0 xl:flex-1">
+          <div className="flex flex-col gap-4 pr-4">
+            {listContent}
           </div>
-        ) : null}
-
-        {!isLoadingUsers && !filteredUsers.length ? (
-          <div className="rounded-lg border border-dashed px-5 py-10 text-center text-sm text-muted-foreground">
-            No users matched the current filters.
-          </div>
-        ) : null}
-
-        {!isLoadingUsers &&
-          filteredUsers.map((user) => {
-            const isSelf = user.id === currentUserId
-            const isArchived = user.status === "archived"
-
-            return (
-              <div key={user.id} className="rounded-lg border bg-background p-4">
-                <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                  <div className="flex flex-col gap-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h2 className="text-base font-medium">
-                        {user.full_name || "No name set"}
-                      </h2>
-                      <RoleBadge value={user.role} />
-                      <StatusBadge value={user.status} />
-                      {isSelf ? (
-                        <span className="inline-flex items-center rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary ring-1 ring-primary/20">
-                          Current session
-                        </span>
-                      ) : null}
-                    </div>
-
-                    <div className="flex flex-col gap-1 text-sm text-muted-foreground">
-                      <p>{user.email}</p>
-                      <p>Created {formatDate(user.created_at)}</p>
-                      <p>Updated {formatDate(user.updated_at)}</p>
-                      {user.archived_at ? (
-                        <p>Archived {formatDate(user.archived_at)}</p>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => onEdit(user)}
-                    >
-                      <UserCog data-icon="inline-start" />
-                      Edit
-                    </Button>
-
-                    {isArchived ? (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onRestore(user)}
-                        disabled={isSubmitting}
-                      >
-                        <RefreshCcw data-icon="inline-start" />
-                        Restore
-                      </Button>
-                    ) : (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onArchive(user)}
-                        disabled={isSubmitting || isSelf}
-                      >
-                        <Archive data-icon="inline-start" />
-                        Archive
-                      </Button>
-                    )}
-
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => onDelete(user)}
-                      disabled={isSubmitting || isSelf}
-                    >
-                      <Trash2 data-icon="inline-start" />
-                      Delete
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            )
-          })}
+        </ScrollArea>
       </CardContent>
     </Card>
   )

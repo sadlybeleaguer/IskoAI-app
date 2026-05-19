@@ -1,3 +1,5 @@
+/* eslint-disable react-refresh/only-export-components */
+
 import {
   createContext,
   useContext,
@@ -16,8 +18,6 @@ import {
 } from "@/services/auth.service"
 
 const AuthContext = createContext(null)
-const profileSelect =
-  "id, email, full_name, role, status, archived_at, created_at, updated_at"
 
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null)

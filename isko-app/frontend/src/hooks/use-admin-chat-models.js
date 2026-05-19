@@ -1,19 +1,79 @@
-import { useCallback, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
+import { toast } from "sonner"
 
-import { supabase } from "@/lib/supabaseClient"
+import { invokeManageUsers } from "@/services/db.service"
 import { getErrorMessage } from "@/utils/errors"
 
 export function useAdminChatModels({ session }) {
   const [models, setModels] = useState([])
   const [modelsError, setModelsError] = useState("")
-  const [modelsFeedback, setModelsFeedback] = useState({ type: "", message: "" })
   const [isLoadingModels, setIsLoadingModels] = useState(true)
   const [updatingModelKey, setUpdatingModelKey] = useState("")
+  const [searchTerm, setSearchTerm] = useState("")
+  const [providerFilter, setProviderFilter] = useState("all")
+  const [statusFilter, setStatusFilter] = useState("all")
+  const isSignedIn = Boolean(session)
+
+  const stats = useMemo(() => {
+    const enabled = models.filter((model) => model.enabled).length
+    const providers = new Set(models.map((model) => model.provider).filter(Boolean)).size
+
+    return {
+      total: models.length,
+      enabled,
+      disabled: models.length - enabled,
+      providers,
+    }
+  }, [models])
+
+  const providerOptions = useMemo(() => {
+    return [...new Set(models.map((model) => model.provider).filter(Boolean))]
+      .sort((left, right) => left.localeCompare(right))
+      .map((provider) => ({
+        value: provider,
+        label:
+          provider === "openrouter"
+            ? "OpenRouter"
+            : provider === "huggingface-router"
+              ? "Hugging Face Router"
+              : provider,
+      }))
+  }, [models])
+
+  const filteredModels = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase()
+
+    return models.filter((model) => {
+      if (providerFilter !== "all" && model.provider !== providerFilter) {
+        return false
+      }
+
+      if (statusFilter !== "all") {
+        const nextStatus = model.enabled ? "enabled" : "disabled"
+
+        if (nextStatus !== statusFilter) {
+          return false
+        }
+      }
+
+      if (!query) {
+        return true
+      }
+
+      return [model.label, model.key, model.provider, model.enabled ? "enabled" : "disabled"]
+        .join(" ")
+        .toLowerCase()
+        .includes(query)
+    })
+  }, [models, providerFilter, searchTerm, statusFilter])
 
   const loadModels = useCallback(async () => {
-    if (!session || !supabase) {
+    if (!isSignedIn) {
       setModels([])
-      setModelsError("You must be signed in to manage models.")
+      const message = "You must be signed in to manage models."
+
+      setModelsError(message)
+      toast.error(message)
       setIsLoadingModels(false)
       return
     }
@@ -21,77 +81,72 @@ export function useAdminChatModels({ session }) {
     setIsLoadingModels(true)
 
     try {
-      const { data, error } = await supabase
-        .from("chat_models")
-        .select("key, label, provider, enabled, sort_order, created_at, updated_at")
-        .order("sort_order", { ascending: true })
-        .order("label", { ascending: true })
-
-      if (error) {
-        throw error
-      }
-
-      setModels(data ?? [])
+      const result = await invokeManageUsers(null, { action: "listModels" })
+      setModels(Array.isArray(result.models) ? result.models : [])
       setModelsError("")
     } catch (error) {
+      const message = getErrorMessage(error)
+
       setModels([])
-      setModelsError(getErrorMessage(error))
+      setModelsError(message)
+      toast.error(message)
     } finally {
       setIsLoadingModels(false)
     }
-  }, [session])
+  }, [isSignedIn])
 
   const updateModelAvailability = useCallback(
     async (model) => {
-      if (!session || !supabase) {
-        setModelsFeedback({
-          type: "error",
-          message: "You must be signed in to manage models.",
-        })
+      if (!isSignedIn) {
+        toast.error("You must be signed in to manage models.")
         return
       }
 
       setUpdatingModelKey(model.key)
-      setModelsFeedback({ type: "", message: "" })
 
       try {
-        const { data, error } = await supabase
-          .from("chat_models")
-          .update({ enabled: !model.enabled })
-          .eq("key", model.key)
-          .select("key, label, provider, enabled, sort_order, created_at, updated_at")
-          .single()
+        const result = await invokeManageUsers(null, {
+          action: "updateModelAvailability",
+          enabled: !model.enabled,
+          modelKey: model.key,
+        })
+        const updatedModel = result.model
 
-        if (error) {
-          throw error
+        if (!updatedModel?.key) {
+          throw new Error("The model update response was missing the model record.")
         }
-
-        const updatedModel = data
 
         setModels((currentModels) =>
           currentModels.map((currentModel) =>
             currentModel.key === updatedModel.key ? updatedModel : currentModel,
           ),
         )
-        setModelsFeedback({
-          type: "success",
-          message: `${updatedModel.label} is now ${updatedModel.enabled ? "enabled" : "disabled"}.`,
-        })
+        toast.success(
+          `${updatedModel.label} is now ${updatedModel.enabled ? "enabled" : "disabled"}.`,
+        )
       } catch (error) {
-        setModelsFeedback({ type: "error", message: getErrorMessage(error) })
+        toast.error(getErrorMessage(error))
       } finally {
         setUpdatingModelKey("")
       }
     },
-    [session],
+    [isSignedIn],
   )
 
   return {
+    filteredModels,
     isLoadingModels,
     loadModels,
     models,
     modelsError,
-    modelsFeedback,
+    providerFilter,
+    providerOptions,
+    searchTerm,
+    stats,
+    setProviderFilter,
+    setSearchTerm,
+    setStatusFilter,
+    statusFilter,
     updateModelAvailability,
     updatingModelKey,
   }

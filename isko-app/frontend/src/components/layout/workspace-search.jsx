@@ -4,6 +4,7 @@ import { CalendarDays, FileText, MessageSquare, Search, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/utils/cn"
 
 const resultTypeIcons = {
@@ -45,6 +46,25 @@ function SearchResultRow({
         </span>
       </span>
     </button>
+  )
+}
+
+function SearchResultsSkeleton() {
+  return (
+    <div className="grid gap-2 px-1 py-1" role="status" aria-label="Loading search results">
+      {Array.from({ length: 5 }).map((_, index) => (
+        <div key={index} className="flex items-start gap-3 rounded-lg px-3 py-2.5">
+          <Skeleton className="size-8 shrink-0 rounded-lg" />
+          <div className="grid min-w-0 flex-1 gap-2">
+            <div className="flex items-center justify-between gap-3">
+              <Skeleton className="h-4 w-2/5" />
+              <Skeleton className="h-3 w-14" />
+            </div>
+            <Skeleton className="h-3 w-10/12" />
+          </div>
+        </div>
+      ))}
+    </div>
   )
 }
 
@@ -206,9 +226,7 @@ export function WorkspaceSearch({
                 Start typing to search across notes, chats, and calendar events.
               </div>
             ) : isLoading ? (
-              <div className="px-3 py-10 text-sm text-muted-foreground">
-                Loading search results...
-              </div>
+              <SearchResultsSkeleton />
             ) : !flatResults.length ? (
               <div className="px-3 py-10 text-sm text-muted-foreground">
                 No matching results.

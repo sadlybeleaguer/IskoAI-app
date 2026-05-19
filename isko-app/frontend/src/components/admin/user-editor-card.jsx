@@ -43,7 +43,7 @@ export function UserEditorCard({
   statusOptions,
 }) {
   return (
-    <Card className="py-0 shadow-[0_1px_2px_rgba(15,23,42,0.08)]">
+    <Card className="py-0 shadow-[0_1px_2px_rgba(15,23,42,0.08)] xl:flex xl:h-full xl:flex-col">
       <CardHeader className="gap-2 border-b px-5 py-5">
         <CardTitle className="text-base font-medium">
           {formMode === "create" ? "Create user" : "Edit user"}
@@ -55,7 +55,7 @@ export function UserEditorCard({
         </CardDescription>
       </CardHeader>
 
-      <CardContent className="flex flex-col gap-5 px-5 py-5">
+      <CardContent className="flex flex-col gap-5 px-5 py-5 xl:flex-1">
         <form className="flex flex-col gap-4" onSubmit={onSubmit}>
           <div className="flex flex-col gap-2">
             <Label htmlFor="full-name">Full name</Label>

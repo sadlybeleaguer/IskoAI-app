@@ -11,11 +11,13 @@ import {
   listArchivedChatThreads,
   listAvailableChatModels,
   listChatFolders,
+  listChatFolderFiles,
   listChatMessages,
   listChatThreadFiles,
   listChatThreads,
   listNotes,
   removeChatFileAttachment,
+  removeChatFolderFile,
   unarchiveChatThread,
   updateChatFolder,
   updateChatMessage,
@@ -23,6 +25,7 @@ import {
   updateChatThreadFolder,
   updateChatThreadTool,
   uploadChatFileAttachment,
+  uploadChatFolderFile,
   validateChatFiles,
 } from "@/services/db.service"
 import { streamAssistantReply } from "@/services/ai-service"
@@ -76,6 +79,7 @@ export function useChatWorkspace(userId, preferredThreadId = null) {
   const [isLoadingFolders, setIsLoadingFolders] = useState(true)
   const [isLoadingArchived, setIsLoadingArchived] = useState(false)
   const [isLoadingMessages, setIsLoadingMessages] = useState(false)
+  const [hasSelectedThreadOnce, setHasSelectedThreadOnce] = useState(false)
   const [isSending, setIsSending] = useState(false)
   const [pageError, setPageError] = useState("")
   const [availableModels, setAvailableModels] = useState(defaultChatModels)
@@ -85,18 +89,21 @@ export function useChatWorkspace(userId, preferredThreadId = null) {
   const [selectedTool, setSelectedTool] = useState("")
   const [attachedNote, setAttachedNote] = useState(null)
   const [attachedFiles, setAttachedFiles] = useState([])
+  const [folderFilesById, setFolderFilesById] = useState({})
   const [availableNotes, setAvailableNotes] = useState([])
   const [isLoadingAttachedFiles, setIsLoadingAttachedFiles] = useState(false)
   const [isLoadingAvailableNotes, setIsLoadingAvailableNotes] = useState(false)
   const [isNotePickerOpen, setIsNotePickerOpen] = useState(false)
   const [isUploadingFiles, setIsUploadingFiles] = useState(false)
+  const [isUploadingFolderId, setIsUploadingFolderId] = useState("")
   const [isUpdatingAttachedNote, setIsUpdatingAttachedNote] = useState(false)
   const [isEphemeral, setIsEphemeral] = useState(false)
   const [deletingThreadId, setDeletingThreadId] = useState("")
-  const [isCreatingFolder, setIsCreatingFolder] = useState(false)
   const [updatingFolderId, setUpdatingFolderId] = useState("")
+  const [loadingFolderFilesId, setLoadingFolderFilesId] = useState("")
   const [composerNotice, setComposerNotice] = useState("")
   const [removingFileId, setRemovingFileId] = useState("")
+  const [removingFolderFileId, setRemovingFolderFileId] = useState("")
   const [streamingThreadId, setStreamingThreadId] = useState("")
   const [streamingMessageId, setStreamingMessageId] = useState("")
   const endOfMessagesRef = useRef(null)
@@ -118,6 +125,14 @@ export function useChatWorkspace(userId, preferredThreadId = null) {
   const unfolderedThreads = useMemo(
     () => threads.filter((thread) => !thread.folder_id),
     [threads],
+  )
+
+  const activeFolder = useMemo(
+    () =>
+      activeThread?.folder_id
+        ? folders.find((folder) => folder.id === activeThread.folder_id) ?? null
+        : null,
+    [activeThread?.folder_id, folders],
   )
 
   const folderThreads = useMemo(() => {
@@ -290,9 +305,13 @@ export function useChatWorkspace(userId, preferredThreadId = null) {
     setAvailableNotes([])
     setIsLoadingAvailableNotes(false)
     setIsUploadingFiles(false)
+    setIsUploadingFolderId("")
     setIsNotePickerOpen(false)
     setAttachedNote(null)
+    setFolderFilesById({})
+    setLoadingFolderFilesId("")
     setRemovingFileId("")
+    setRemovingFolderFileId("")
   }, [userId])
 
   useEffect(() => {
@@ -415,34 +434,59 @@ export function useChatWorkspace(userId, preferredThreadId = null) {
   }, [loadThreads, loadFolders, loadArchivedThreads])
 
   const handleCreateFolder = useCallback(
-    async (title) => {
+    async ({
+      attachedNoteId = null,
+      selectedTool = "",
+      systemPrompt = "",
+      title,
+    }) => {
       if (!userId) return
 
-      setIsCreatingFolder(true)
       try {
-        const nextFolder = await createChatFolder({ title, userId })
+        const nextFolder = await createChatFolder({
+          attachedNoteId,
+          selectedTool,
+          systemPrompt,
+          title,
+          userId,
+        })
         setFolders((current) => [...current, nextFolder])
+        return nextFolder
       } catch (error) {
         setPageError(getErrorMessage(error))
-      } finally {
-        setIsCreatingFolder(false)
+        throw error
       }
     },
     [userId],
   )
 
   const handleUpdateFolder = useCallback(
-    async (folderId, title) => {
+    async ({
+      attachedNoteId,
+      folderId,
+      selectedTool,
+      systemPrompt,
+      title,
+    }) => {
       if (!userId) return
 
       setUpdatingFolderId(folderId)
       try {
-        const nextFolder = await updateChatFolder({ folderId, title, userId })
+        const nextFolder = await updateChatFolder({
+          attachedNoteId,
+          folderId,
+          selectedTool,
+          systemPrompt,
+          title,
+          userId,
+        })
         setFolders((current) =>
           current.map((f) => (f.id === folderId ? nextFolder : f)),
         )
+        return nextFolder
       } catch (error) {
         setPageError(getErrorMessage(error))
+        throw error
       } finally {
         setUpdatingFolderId("")
       }
@@ -458,6 +502,11 @@ export function useChatWorkspace(userId, preferredThreadId = null) {
       try {
         await deleteChatFolder({ folderId, userId })
         setFolders((current) => current.filter((f) => f.id !== folderId))
+        setFolderFilesById((current) => {
+          const next = { ...current }
+          delete next[folderId]
+          return next
+        })
         // Threads in this folder are automatically unassigned in service
         setThreads((current) =>
           current.map((t) => (t.folder_id === folderId ? { ...t, folder_id: null } : t)),
@@ -571,6 +620,7 @@ export function useChatWorkspace(userId, preferredThreadId = null) {
     }
 
     setActiveThreadId(preferredThreadId)
+    setMessages([])
     setComposerNotice("")
   }, [activeThreadId, preferredThreadId, threads])
 
@@ -667,6 +717,42 @@ export function useChatWorkspace(userId, preferredThreadId = null) {
       setIsLoadingAvailableNotes(false)
     }
   }, [userId])
+
+  const loadFolderFiles = useCallback(
+    async (folderId) => {
+      if (!folderId || !userId) {
+        return []
+      }
+
+      setLoadingFolderFilesId(folderId)
+
+      try {
+        const nextFiles = await listChatFolderFiles(userId, folderId)
+        setFolderFilesById((current) => ({
+          ...current,
+          [folderId]: nextFiles,
+        }))
+        return nextFiles
+      } catch (error) {
+        setPageError(getErrorMessage(error))
+        setFolderFilesById((current) => ({
+          ...current,
+          [folderId]: [],
+        }))
+        return []
+      } finally {
+        setLoadingFolderFilesId((currentFolderId) =>
+          currentFolderId === folderId ? "" : currentFolderId,
+        )
+      }
+    },
+    [userId],
+  )
+
+  const getFolderFiles = useCallback(
+    (folderId) => folderFilesById[folderId] ?? [],
+    [folderFilesById],
+  )
 
   const flushPendingAttachmentUpdate = useCallback(async () => {
     const pendingUpdate = attachmentUpdatePromiseRef.current
@@ -851,6 +937,120 @@ export function useChatWorkspace(userId, preferredThreadId = null) {
     [activeThread, upsertThreadState],
   )
 
+  const handleUploadFolderFiles = useCallback(
+    async ({ files, folderId }) => {
+      if (!userId || !folderId) {
+        throw new Error("You must be signed in to upload folder files.")
+      }
+
+      const nextFiles = validateChatFiles(files)
+      setPageError("")
+      setIsUploadingFolderId(folderId)
+      let uploadedCount = 0
+      let failedCount = 0
+
+      try {
+        for (const file of nextFiles) {
+          const tempId = `folder-upload-${crypto.randomUUID()}`
+          const tempAttachment = {
+            created_at: new Date().toISOString(),
+            error_message: "",
+            folder_id: folderId,
+            id: tempId,
+            mime_type: file.type || "",
+            original_name: file.name,
+            size_bytes: file.size,
+            status: "uploading",
+            updated_at: new Date().toISOString(),
+            user_id: userId,
+          }
+
+          setFolderFilesById((current) => ({
+            ...current,
+            [folderId]: [...(current[folderId] ?? []), tempAttachment],
+          }))
+
+          try {
+            const uploadedAttachment = await uploadChatFolderFile({
+              file,
+              folderId,
+            })
+            uploadedCount += 1
+
+            setFolderFilesById((current) => ({
+              ...current,
+              [folderId]: (current[folderId] ?? []).map((currentFile) =>
+                currentFile.id === tempId ? uploadedAttachment : currentFile,
+              ),
+            }))
+          } catch (error) {
+            failedCount += 1
+            setFolderFilesById((current) => ({
+              ...current,
+              [folderId]: (current[folderId] ?? []).map((currentFile) =>
+                currentFile.id === tempId
+                  ? {
+                      ...currentFile,
+                      error_message: getErrorMessage(error),
+                      status: "failed",
+                    }
+                  : currentFile,
+              ),
+            }))
+          }
+        }
+
+        return {
+          failedCount,
+          uploadedCount,
+        }
+      } finally {
+        setIsUploadingFolderId((currentFolderId) =>
+          currentFolderId === folderId ? "" : currentFolderId,
+        )
+      }
+    },
+    [userId],
+  )
+
+  const handleRemoveFolderFile = useCallback(
+    async (folderId, file) => {
+      if (!folderId || !file?.id) {
+        return
+      }
+
+      if (file.id.startsWith("folder-upload-")) {
+        setFolderFilesById((current) => ({
+          ...current,
+          [folderId]: (current[folderId] ?? []).filter(
+            (currentFile) => currentFile.id !== file.id,
+          ),
+        }))
+        return
+      }
+
+      setRemovingFolderFileId(file.id)
+      setPageError("")
+
+      try {
+        await removeChatFolderFile({ fileId: file.id })
+        setFolderFilesById((current) => ({
+          ...current,
+          [folderId]: (current[folderId] ?? []).filter(
+            (currentFile) => currentFile.id !== file.id,
+          ),
+        }))
+      } catch (error) {
+        setPageError(getErrorMessage(error))
+      } finally {
+        setRemovingFolderFileId((currentFileId) =>
+          currentFileId === file.id ? "" : currentFileId,
+        )
+      }
+    },
+    [],
+  )
+
   const createNewChat = () => {
     if (isSending) {
       stopStreaming()
@@ -873,7 +1073,9 @@ export function useChatWorkspace(userId, preferredThreadId = null) {
       stopStreaming()
     }
 
+    setHasSelectedThreadOnce(true)
     setActiveThreadId(threadId)
+    setMessages([])
     setAttachedFiles([])
     setComposerNotice("")
     setIsNotePickerOpen(false)
@@ -1274,6 +1476,7 @@ export function useChatWorkspace(userId, preferredThreadId = null) {
 
   return {
     activeThread,
+    activeFolder,
     activeThreadId,
     archivedThreads,
     attachedNote,
@@ -1292,6 +1495,7 @@ export function useChatWorkspace(userId, preferredThreadId = null) {
     draft,
     endOfMessagesRef,
     folders,
+    getFolderFiles,
     folderThreads,
     groupedThreads,
     handleComposerKeyDown,
@@ -1300,22 +1504,29 @@ export function useChatWorkspace(userId, preferredThreadId = null) {
     isLoadingAttachedFiles,
     isLoadingAvailableNotes,
     isLoadingFolders,
+    isLoadingFolderFiles: (folderId) => loadingFolderFilesId === folderId,
     isLoadingMessages,
     isLoadingModels,
     isLoadingThreads,
+    hasSelectedThreadOnce,
     isNotePickerOpen,
     isSending,
     isStreamingActiveThread,
     isUploadingFiles,
+    isUploadingFolderFiles: (folderId) => isUploadingFolderId === folderId,
     isUpdatingAttachedNote,
     isEphemeral,
+    loadAvailableNotes,
+    loadFolderFiles,
     messages,
     modelsError,
     moveThreadToFolder: handleMoveThreadToFolder,
     openNotePicker,
     pageError,
     removeAttachedFile: handleRemoveAttachedFile,
+    removeFolderFile: handleRemoveFolderFile,
     removingFileId,
+    removingFolderFileId,
     restoreThread: handleRestoreThread,
     selectedModelKey,
     selectedModelLabel: selectedModel?.label ?? "",
@@ -1332,5 +1543,7 @@ export function useChatWorkspace(userId, preferredThreadId = null) {
     streamingMessageId,
     updateFolder: handleUpdateFolder,
     updatingFolderId,
+    uploadFolderFiles: handleUploadFolderFiles,
+    validateFiles: validateChatFiles,
   }
 }

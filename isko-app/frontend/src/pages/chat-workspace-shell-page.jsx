@@ -40,9 +40,11 @@ export function ChatWorkspaceShellPage() {
     draft,
     endOfMessagesRef,
     folders,
+    getFolderFiles,
     folderThreads,
     groupedThreads,
     handleComposerKeyDown,
+    hasSelectedThreadOnce,
     isLoadingMessages,
     isLoadingThreads,
     isLoadingArchived,
@@ -56,6 +58,7 @@ export function ChatWorkspaceShellPage() {
     hasAvailableModels,
     isLoadingAttachedFiles,
     isLoadingAvailableNotes,
+    isLoadingFolderFiles,
     isLoadingModels,
     isEphemeral,
     selectedModelKey,
@@ -63,9 +66,14 @@ export function ChatWorkspaceShellPage() {
     selectedTool,
     isNotePickerOpen,
     isUploadingFiles,
+    isUploadingFolderFiles,
+    loadAvailableNotes,
+    loadFolderFiles,
     selectThread,
     removeAttachedFile,
+    removeFolderFile,
     removingFileId,
+    removingFolderFileId,
     restoreThread,
     sendMessage,
     setAttachedNote,
@@ -76,6 +84,8 @@ export function ChatWorkspaceShellPage() {
     openNotePicker,
     stopStreaming,
     streamingMessageId,
+    uploadFolderFiles,
+    validateFiles,
     isUpdatingAttachedNote,
     updateFolder,
     updatingFolderId,
@@ -124,6 +134,22 @@ export function ChatWorkspaceShellPage() {
       </div>
     ) : null
 
+  const temporaryChatToggle = (
+    <Button
+      variant="ghost"
+      size="sm"
+      className={cn(
+        "h-9 gap-2 px-3",
+        isEphemeral && "bg-primary/10 text-primary hover:bg-primary/20 hover:text-primary"
+      )}
+      onClick={handleToggleEphemeral}
+      title={isEphemeral ? "Turn off temporary chat" : "Temporary chat"}
+    >
+      <Ghost className="size-4" />
+      <span className="hidden sm:inline">Temporary</span>
+    </Button>
+  )
+
   return (
     <WorkspaceShell
       alerts={alerts}
@@ -141,20 +167,6 @@ export function ChatWorkspaceShellPage() {
           </div>
 
           <div className="ml-auto flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              className={cn(
-                "h-9 gap-2 px-3",
-                isEphemeral && "bg-primary/10 text-primary hover:bg-primary/20 hover:text-primary"
-              )}
-              onClick={handleToggleEphemeral}
-              title={isEphemeral ? "Turn off temporary chat" : "Temporary chat"}
-            >
-              <Ghost className="size-4" />
-              <span className="hidden sm:inline">Temporary</span>
-            </Button>
-
             <Button
               variant="ghost"
               size="sm"
@@ -185,11 +197,17 @@ export function ChatWorkspaceShellPage() {
           deleteThreadPermanent={deleteThreadPermanent}
           deletingThreadId={deletingThreadId}
           folders={folders}
+          getFolderFiles={getFolderFiles}
           folderThreads={folderThreads}
           groupedThreads={groupedThreads}
           isLoadingArchived={isLoadingArchived}
+          isLoadingAvailableNotes={isLoadingAvailableNotes}
+          isLoadingFolderFiles={isLoadingFolderFiles}
           isLoadingFolders={isLoadingFolders}
           isLoadingThreads={isLoadingThreads}
+          isUploadingFolderFiles={isUploadingFolderFiles}
+          loadAvailableNotes={loadAvailableNotes}
+          loadFolderFiles={loadFolderFiles}
           moveThreadToFolder={moveThreadToFolder}
           onArchiveThread={(threadId) => {
             if (preferredThreadId === threadId || activeThreadId === threadId) {
@@ -199,8 +217,13 @@ export function ChatWorkspaceShellPage() {
           }}
           onRestoreThread={restoreThread}
           onSelectThread={handleSelectThread}
+          availableNotes={availableNotes}
+          removeFolderFile={removeFolderFile}
+          removingFolderFileId={removingFolderFileId}
           updateFolder={updateFolder}
+          uploadFolderFiles={uploadFolderFiles}
           updatingFolderId={updatingFolderId}
+          validateFiles={validateFiles}
         />
       }
     >
@@ -210,10 +233,14 @@ export function ChatWorkspaceShellPage() {
             <>
               <div className="min-h-0 flex-1 overflow-hidden">
                 <ScrollArea className="h-full">
+                  <div className="mx-auto flex w-full max-w-5xl px-4 pt-4 sm:px-6 lg:px-8">
+                    {temporaryChatToggle}
+                  </div>
                   <ChatThreadView
                     activeThread={activeThread}
                     attachedFiles={attachedFiles}
                     endOfMessagesRef={endOfMessagesRef}
+                    hasSelectedThreadOnce={hasSelectedThreadOnce}
                     isEphemeral={isEphemeral}
                     isLoadingMessages={isLoadingMessages}
                     messages={messages}
@@ -248,7 +275,6 @@ export function ChatWorkspaceShellPage() {
                     onRemoveAttachedFile={removeAttachedFile}
                     onRemoveAttachedNote={() => setAttachedNote(null)}
                     onStopStreaming={stopStreaming}
-                    onToggleEphemeral={handleToggleEphemeral}
                     onSubmit={sendMessage}
                     removingFileId={removingFileId}
                     selectedModelLabel={selectedModelLabel}
@@ -262,7 +288,10 @@ export function ChatWorkspaceShellPage() {
           ) : (
             <div className="min-h-0 flex-1 overflow-hidden">
               <ScrollArea className="h-full">
-                <ChatEmptyState selectedModelLabel={selectedModelLabel}>
+                <div className="mx-auto flex w-full max-w-6xl px-4 pt-4 sm:px-6 lg:px-8">
+                  {temporaryChatToggle}
+                </div>
+                <ChatEmptyState>
                   <ChatComposer
                     attachedNote={attachedNote}
                     attachedFiles={attachedFiles}
@@ -285,7 +314,6 @@ export function ChatWorkspaceShellPage() {
                     onRemoveAttachedFile={removeAttachedFile}
                     onRemoveAttachedNote={() => setAttachedNote(null)}
                     onStopStreaming={stopStreaming}
-                    onToggleEphemeral={handleToggleEphemeral}
                     onSubmit={sendMessage}
                     removingFileId={removingFileId}
                     selectedModelLabel={selectedModelLabel}

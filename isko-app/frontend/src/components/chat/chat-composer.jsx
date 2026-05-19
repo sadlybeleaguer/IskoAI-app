@@ -3,9 +3,7 @@ import { useRef } from "react"
 import {
   ArrowUpRight,
   BrainCircuit,
-  Calculator,
   ChevronDown,
-  Code2,
   FileText,
   Mic,
   Paperclip,
@@ -16,8 +14,10 @@ import {
 } from "lucide-react"
 
 import { ChatFileAttachments } from "@/components/chat/chat-file-attachments"
+import { chatToolOptions } from "@/components/chat/chat-tool-options"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,12 +34,6 @@ import { acceptedChatFileInputAccept } from "@/services/db.service"
 import { starterPrompts, suggestedPrompts } from "@/utils/chat"
 import { cn } from "@/utils/cn"
 
-const toolOptions = [
-  { value: "Math", icon: Calculator },
-  { value: "Programming", icon: Code2 },
-  { value: "Complex Problems", icon: BrainCircuit },
-]
-
 export function ChatModelMenu({
   isLoadingModels = false,
   models,
@@ -48,9 +42,7 @@ export function ChatModelMenu({
   setSelectedModelKey,
 }) {
   const isDisabled = isLoadingModels || models.length === 0
-  const triggerLabel = isLoadingModels
-    ? "Loading models..."
-    : selectedModelLabel || "No models available"
+  const triggerLabel = selectedModelLabel || "No models available"
 
   return (
     <DropdownMenu>
@@ -62,7 +54,11 @@ export function ChatModelMenu({
           disabled={isDisabled}
         >
           <div className="flex min-w-0 items-center gap-1 text-left">
-            <span className="truncate text-sm font-medium">{triggerLabel}</span>
+            {isLoadingModels ? (
+              <Skeleton className="h-4 w-28" />
+            ) : (
+              <span className="truncate text-sm font-medium">{triggerLabel}</span>
+            )}
             <ChevronDown data-icon="inline-end" />
           </div>
         </Button>
@@ -83,7 +79,7 @@ export function ChatModelMenu({
           </DropdownMenuRadioGroup>
         ) : (
           <DropdownMenuItem disabled>
-            {isLoadingModels ? "Loading models..." : "No models available"}
+            {isLoadingModels ? <Skeleton className="h-4 w-32" /> : "No models available"}
           </DropdownMenuItem>
         )}
       </DropdownMenuContent>
@@ -92,13 +88,13 @@ export function ChatModelMenu({
 }
 
 export function ChatComposer({
+  allowFileAttachments = true,
   attachedNote,
   attachedFiles = [],
   composerNotice,
   draft,
   isEmptyState = false,
   isEphemeral = false,
-  isLoadingAttachedFiles = false,
   isLoadingModels = false,
   isUploadingFiles = false,
   isUpdatingAttachedNote = false,
@@ -112,7 +108,6 @@ export function ChatComposer({
   onRemoveAttachedFile,
   onRemoveAttachedNote,
   onStopStreaming,
-  onToggleEphemeral,
   onSubmit,
   isStreaming = false,
   removingFileId = "",
@@ -131,22 +126,24 @@ export function ChatComposer({
       )}
       onSubmit={onSubmit}
     >
-      <input
-        ref={fileInputRef}
-        type="file"
-        multiple
-        className="hidden"
-        accept={acceptedChatFileInputAccept}
-        onChange={(event) => {
-          const nextFiles = Array.from(event.target.files ?? [])
+      {allowFileAttachments ? (
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          className="hidden"
+          accept={acceptedChatFileInputAccept}
+          onChange={(event) => {
+            const nextFiles = Array.from(event.target.files ?? [])
 
-          if (nextFiles.length) {
-            void onAttachFiles?.(nextFiles)
-          }
+            if (nextFiles.length) {
+              void onAttachFiles?.(nextFiles)
+            }
 
-          event.target.value = ""
-        }}
-      />
+            event.target.value = ""
+          }}
+        />
+      ) : null}
 
       <div className="overflow-hidden rounded-lg border bg-background shadow-[0_1px_2px_rgba(15,23,42,0.08)]">
         <Textarea
@@ -184,13 +181,15 @@ export function ChatComposer({
                   <DropdownMenuLabel>Attach</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuGroup>
-                    <DropdownMenuItem
-                      onSelect={() => fileInputRef.current?.click()}
-                      disabled={isUploadingFiles}
-                    >
-                      <Paperclip data-icon="inline-start" />
-                      {isUploadingFiles ? "Uploading files..." : "Upload files"}
-                    </DropdownMenuItem>
+                    {allowFileAttachments ? (
+                      <DropdownMenuItem
+                        onSelect={() => fileInputRef.current?.click()}
+                        disabled={isUploadingFiles}
+                      >
+                        <Paperclip data-icon="inline-start" />
+                        {isUploadingFiles ? "Uploading files..." : "Upload files"}
+                      </DropdownMenuItem>
+                    ) : null}
                     <DropdownMenuItem onSelect={onOpenNotePicker}>
                       <FileText data-icon="inline-start" />
                       {attachedNote ? "Replace attached note" : "Attach notes"}
@@ -210,7 +209,7 @@ export function ChatComposer({
                   <DropdownMenuSeparator />
                   <DropdownMenuRadioGroup value={selectedTool} onValueChange={setSelectedTool}>
                     <DropdownMenuRadioItem value="">Default</DropdownMenuRadioItem>
-                    {toolOptions.map((tool) => {
+                    {chatToolOptions.map((tool) => {
                       const Icon = tool.icon
 
                       return (
@@ -225,9 +224,13 @@ export function ChatComposer({
               </DropdownMenu>
             </div>
             <div className="hidden min-w-0 items-center gap-3 text-xs text-muted-foreground sm:flex">
-              <span className="truncate">
-                Model {selectedModelLabel || (isLoadingModels ? "Loading..." : "Unavailable")}
-              </span>
+              {isLoadingModels ? (
+                <Skeleton className="h-3 w-28" />
+              ) : (
+                <span className="truncate">
+                  Model {selectedModelLabel || "Unavailable"}
+                </span>
+              )}
               {isEphemeral ? (
                 <span className="font-medium text-primary">Temporary Mode</span>
               ) : (
@@ -305,9 +308,13 @@ export function ChatComposer({
       {attachedNote ? (
         <div className="flex items-center justify-between gap-3 rounded-lg border bg-background px-3 py-2">
           <div className="min-w-0">
-            <div className="truncate text-sm font-medium">
-              {isUpdatingAttachedNote ? "Updating note context..." : attachedNote.title}
-            </div>
+            {isUpdatingAttachedNote ? (
+              <Skeleton className="h-4 w-40" />
+            ) : (
+              <div className="truncate text-sm font-medium">
+                {attachedNote.title}
+              </div>
+            )}
             <div className="truncate text-xs text-muted-foreground">
               Attached note context stays active for this thread.
             </div>
@@ -330,7 +337,7 @@ export function ChatComposer({
           files={attachedFiles}
           onRemove={onRemoveAttachedFile}
           removingFileId={removingFileId}
-          title={isLoadingAttachedFiles ? "Loading files..." : "Attached files"}
+          title="Attached files"
         />
       ) : null}
 

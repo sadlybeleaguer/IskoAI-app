@@ -37,8 +37,12 @@ supabase/.temp
 !.env.example
 frontend/.env
 frontend/.env.*
+!frontend/.env.localhost.example
 backend/.env
 backend/.env.*
+supabase/functions/.env
+supabase/functions/.env.*
+!supabase/functions/.env.example
 database/.env
 
 # Local development
