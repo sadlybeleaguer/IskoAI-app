@@ -1,5 +1,7 @@
 'use client';
 
+import { Link } from 'react-router-dom';
+
 import { Button } from '@/components/ui_1/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui_1/card';
 import { Input } from '@/components/ui_1/input';
@@ -38,8 +40,8 @@ export default function LandingPage() {
               About
             </a>
           </div>
-          <Button variant="default" className="rounded-full px-6">
-            Sign In
+          <Button asChild variant="default" className="rounded-full px-6">
+            <Link to="/sign-in">Sign In</Link>
           </Button>
         </div>
       </nav>
@@ -61,9 +63,11 @@ export default function LandingPage() {
               designed for deep learning.
             </p>
             <div className="flex flex-col gap-3 sm:flex-row">
-              <Button size="lg" className="rounded-full">
-                Get Started Free
-                <ArrowRight className="ml-2 h-4 w-4" />
+              <Button asChild size="lg" className="rounded-full">
+                <Link to="/sign-in">
+                  Get Started Free
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
               </Button>
               <Button variant="outline" size="lg" className="rounded-full">
                 View Demo
