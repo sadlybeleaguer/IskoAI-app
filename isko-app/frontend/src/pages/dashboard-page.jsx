@@ -88,7 +88,7 @@ export function DashboardPage() {
           </div>
           <div className="min-w-0">
             <h1 className="truncate text-base font-medium tracking-tight">
-              {greeting}, {displayName}
+              {greeting}, {displayName}.
             </h1>
             <p className="truncate text-xs text-muted-foreground">
               Welcome to IskoAI Dashboard.

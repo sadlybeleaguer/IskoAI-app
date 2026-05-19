@@ -1,4 +1,20 @@
-import { Plus, ChevronDown, FileText, Trash2, Loader2 } from "lucide-react"
+import { useRef } from "react"
+import {
+  Bold,
+  ChevronDown,
+  FileText,
+  Heading1,
+  Heading2,
+  Italic,
+  List,
+  ListOrdered,
+  Loader2,
+  Plus,
+  Redo2,
+  Trash2,
+  Underline,
+  Undo2,
+} from "lucide-react"
 import { useAuth } from "@/context/auth-context"
 import { useNotesWorkspace } from "@/hooks/use-notes-workspace"
 import { NotesEditor } from "@/components/notes/notes-editor"
@@ -14,6 +30,95 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { getNoteTitle, formatNoteTimestamp } from "@/utils/notes"
 import { cn } from "@/utils/cn"
+
+const blockButtons = [
+  {
+    command: "formatBlock",
+    label: "Text",
+    value: "<p>",
+  },
+  {
+    command: "formatBlock",
+    icon: Heading1,
+    label: "H1",
+    value: "<h1>",
+  },
+  {
+    command: "formatBlock",
+    icon: Heading2,
+    label: "H2",
+    value: "<h2>",
+  },
+]
+
+const inlineButtons = [
+  { command: "bold", icon: Bold, label: "Bold" },
+  { command: "italic", icon: Italic, label: "Italic" },
+  { command: "underline", icon: Underline, label: "Underline" },
+  { command: "insertUnorderedList", icon: List, label: "Bullet list" },
+  { command: "insertOrderedList", icon: ListOrdered, label: "Numbered list" },
+  { command: "undo", icon: Undo2, label: "Undo" },
+  { command: "redo", icon: Redo2, label: "Redo" },
+]
+
+function ToolbarButton({
+  command,
+  commandValue,
+  icon: Icon,
+  label,
+  onRunCommand,
+}) {
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size={Icon ? "icon-sm" : "sm"}
+      className={cn("shrink-0", Icon ? "px-0" : "px-2 text-xs font-medium")}
+      onMouseDown={(event) => event.preventDefault()}
+      onClick={() => onRunCommand(command, commandValue)}
+      aria-label={label}
+      title={label}
+    >
+      {Icon ? <Icon className="size-3.5" /> : label}
+    </Button>
+  )
+}
+
+function ChatNotesToolbar({ editorRef }) {
+  const runCommand = (command, commandValue) => {
+    editorRef.current?.runCommand(command, commandValue)
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-1 rounded-lg border bg-background px-1 py-1">
+        {blockButtons.map((button) => (
+          <ToolbarButton
+            key={`${button.command}-${button.label}`}
+            command={button.command}
+            commandValue={button.value}
+            icon={button.icon}
+            label={button.label}
+            onRunCommand={runCommand}
+          />
+        ))}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-1 rounded-lg border bg-background px-1 py-1">
+        {inlineButtons.map((button) => (
+          <ToolbarButton
+            key={`${button.command}-${button.label}`}
+            command={button.command}
+            commandValue={button.value}
+            icon={button.icon}
+            label={button.label}
+            onRunCommand={runCommand}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
 
 function ChatNotesPanelSkeleton() {
   return (
@@ -35,6 +140,7 @@ function ChatNotesPanelSkeleton() {
 
 export function ChatNotesPanel() {
   const { user } = useAuth()
+  const editorRef = useRef(null)
   const {
     activeNote,
     createNote,
@@ -138,9 +244,11 @@ export function ChatNotesPanel() {
                 className="bg-transparent text-lg font-semibold outline-none placeholder:text-muted-foreground/50"
               />
               <div className="h-px w-full bg-border/50" />
+              <ChatNotesToolbar editorRef={editorRef} />
             </div>
             <NotesEditor
               draft={draft}
+              editorRef={editorRef}
               onDraftChange={setDraft}
             />
           </div>

@@ -17,7 +17,7 @@ import {
   createOpenAICompatibleStream,
 } from "../../services/ai.service.ts"
 
-const ALLOWED_TOOLS = new Set(["", "Math", "Programming", "Complex Problems"])
+const ALLOWED_TOOLS = new Set(["", "Math", "Programming", "Complex Problems", "Quiz"])
 const MAX_ATTACHED_FILE_CONTEXT_CHARACTERS = 30000
 const MAX_ATTACHED_FILE_CONTEXT_PER_FILE = 12000
 
