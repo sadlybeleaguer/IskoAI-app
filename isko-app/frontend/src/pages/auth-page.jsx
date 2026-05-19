@@ -21,9 +21,9 @@ import { cn } from "@/utils/cn"
 const authCopy = {
   "sign-in": {
     eyebrow: "Welcome back",
-    title: "Sign in to your control room",
+    title: "Sign in to your account",
     description:
-      "Use your Supabase email and password to access the protected app shell.",
+      "Use your email and password to access.",
     cta: "Sign in",
     alternateLabel: "Need an account?",
     alternateHref: "/sign-up",
@@ -31,9 +31,9 @@ const authCopy = {
   },
   "sign-up": {
     eyebrow: "Start fresh",
-    title: "Create your starter account",
+    title: "Create account",
     description:
-      "Create an account with your name, email, and a strong password so the auth flow is ready for real users.",
+      "Create an account with your name, email, and a strong password.",
     cta: "Create account",
     alternateLabel: "Already have an account?",
     alternateHref: "/sign-in",
