@@ -1,27 +1,22 @@
-export const starterPrompts = [
-  "Draft an onboarding checklist for a new product hire.",
-  "Summarize a meeting into decisions, risks, and next steps.",
-  "Turn a rough idea into a one-page project brief.",
+export const recommendationPrompts = [
+  "Draft an onboarding checklist for a new user.",
+  "Summarize a meeting into key decisions and risks.",
+  "Turn a rough idea into a one-page project plan.",
+  "Help me overcome procrastination with practical steps.",
+  "Give me productivity tips for studying or work.",
+  "Explain options trading in simple terms.",
+  "Explain stock buying and selling if I'm a beginner.",
+  "Show me a code snippet for a website sticky header.",
+  "Help me organize my study schedule for the week.",
+  "Break down a complex topic into simple steps.",
+  "Suggest ways to improve focus while studying.",
+  "Generate a project idea for a web developer portfolio.",
+  "Help me write a professional email response.",
+  "Explain how APIs work with a simple example.",
 ]
 
-export const suggestedPrompts = [
-  {
-    title: "Overcome procrastination",
-    hint: "give me tips",
-    prompt: "Help me overcome procrastination and keep the advice practical.",
-  },
-  {
-    title: "Explain options trading",
-    hint: "if I'm familiar with buying and selling stocks",
-    prompt:
-      "Explain options trading to someone who already understands buying and selling stocks.",
-  },
-  {
-    title: "Show me a code snippet",
-    hint: "of a website's sticky header",
-    prompt: "Show me a concise code snippet for a website's sticky header.",
-  },
-]
+export const starterPrompts = recommendationPrompts.slice(0, 3)
+export const suggestedPrompts = recommendationPrompts.slice(3)
 
 export const cannedReplies = [
   "I can turn that into a tighter draft, a checklist, or a handoff note. Pick the format and I will keep it concise.",

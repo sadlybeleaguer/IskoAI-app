@@ -4,17 +4,17 @@ import {
   Brain,
   CalendarDays,
   CheckCircle2,
+  Clock3,
   FileText,
-  Ghost,
   ListChecks,
   MessageSquare,
   Search,
   Shield,
   Sparkles,
-  Zap,
 } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
+import { BentoCard, BentoGrid } from "@/components/ui/bento-grid"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -24,54 +24,55 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { AuroraText } from "@/components/ui/aurora-text"
 
 const featureGroups = [
   {
     icon: MessageSquare,
     eyebrow: "Ask with context",
-    title: "Start in chat and keep the thread useful.",
+    title: "Chat that stays useful",
     description:
-      "Pick from enabled models, switch tools for the task at hand, and work inside a thread built for real study sessions.",
+      "Choose the right model, switch tools, and keep each thread focused.",
     bullets: [
-      "Model selection directly in the workspace",
-      "Tool modes for math, programming, complex problems, and quiz work",
-      "Temporary chats for one-off prompts and fresh starts",
+      "Model selection in the workspace",
+      "Tool modes for focused work",
+      "Temporary chats for quick starts",
     ],
   },
   {
     icon: FileText,
     eyebrow: "Keep your material connected",
-    title: "Attach notes and files instead of copying context around.",
+    title: "Context stays attached",
     description:
-      "Bring note context into the assistant, upload supporting files, and keep related threads organized with folders and archives.",
+      "Bring notes and files into the assistant without rebuilding context.",
     bullets: [
-      "Attach a note to keep reference material active in a thread",
-      "Upload files inside chat when you need extra context",
-      "Organize conversations with folders, archives, and saved threads",
+      "Attach notes to a thread",
+      "Upload supporting files",
+      "Organize with folders and archives",
     ],
   },
   {
     icon: CalendarDays,
     eyebrow: "Plan the work",
-    title: "Move from conversation to schedule without leaving the workspace.",
+    title: "Plans stay close",
     description:
-      "Use the notes library for long-form work and the calendar view for upcoming deadlines, study blocks, and event planning.",
+      "Turn useful output into notes, deadlines, and next study blocks.",
     bullets: [
-      "Dedicated notes library and editor",
-      "Calendar month view with upcoming event sidebar",
-      "One workspace shell across chat, notes, and planning",
+      "Notes library and editor",
+      "Calendar with upcoming events",
+      "One shell for study work",
     ],
   },
   {
     icon: ListChecks,
     eyebrow: "Check understanding",
-    title: "Turn a good explanation into a quiz while the topic is still fresh.",
+    title: "Review while it is fresh",
     description:
-      "Generate quizzes from an active chat thread, refine the focus, submit answers, and review graded feedback in the same flow.",
+      "Generate a quiz from the active thread and review feedback immediately.",
     bullets: [
-      "Quiz generation from saved thread context",
-      "Multiple formats with difficulty and question count controls",
-      "Saved attempts with grading and feedback",
+      "Thread-based quiz generation",
+      "Format and difficulty controls",
+      "Saved attempts with feedback",
     ],
   },
 ]
@@ -81,25 +82,25 @@ const studyFlow = [
     step: "01",
     title: "Ask the assistant",
     description:
-      "Start with a real question, choose the right model, and steer the thread with the tool that matches the problem.",
+      "Choose a model and tool for the problem in front of you.",
   },
   {
     step: "02",
     title: "Attach the right context",
     description:
-      "Bring in notes or files when the topic needs more than a blank prompt and keep everything inside the same workspace.",
+      "Add notes or files when the topic needs more than a blank prompt.",
   },
   {
     step: "03",
     title: "Save the output",
     description:
-      "Move the useful parts into notes or plan the next step on the calendar instead of losing them in scattered tabs.",
+      "Keep the useful parts in notes or turn them into a calendar step.",
   },
   {
     step: "04",
     title: "Generate a quiz",
     description:
-      "Use the recent thread as quiz context, answer inside the app, and review the graded result immediately.",
+      "Use recent context to test recall and review graded feedback.",
   },
 ]
 
@@ -108,42 +109,80 @@ const trustCards = [
     icon: Search,
     title: "Search across your workspace",
     description:
-      "Workspace search already spans chats, notes, and calendar records, so past context is still reachable when you need it.",
+      "Find chats, notes, and calendar records from one search surface.",
   },
   {
     icon: Shield,
     title: "Managed model availability",
     description:
-      "Admins can control which models are available to users, keeping the assistant surface easier to manage for classes or teams.",
+      "Keep the assistant surface manageable for classes or teams.",
   },
   {
-    icon: Ghost,
-    title: "Temporary when you need it",
+    icon: Clock3,
+    title: "Temporary when useful",
     description:
-      "Start a temporary chat for quick exploration or one-off questions without turning every prompt into a long-running thread.",
+      "Explore quick questions without turning every prompt into a saved thread.",
   },
 ]
 
 const sectionShellClassName = "mx-auto max-w-7xl px-4 sm:px-6 lg:px-8"
+const auroraTextColors = ["#2563eb", "#3b82f6", "#60a5fa", "#93c5fd"]
+const premiumCardClassName =
+  "group relative h-full overflow-hidden rounded-xl border border-white/70 bg-white/80 shadow-[0_18px_70px_-48px_rgba(15,23,42,0.5)] backdrop-blur-xl transition-all duration-300 ease-out before:absolute before:inset-x-0 before:top-0 before:h-px before:bg-gradient-to-r before:from-transparent before:via-primary/40 before:to-transparent hover:-translate-y-1 hover:border-primary/30 hover:bg-white/90 hover:shadow-[0_28px_90px_-48px_rgba(59,130,246,0.55)] dark:border-white/10 dark:bg-background/70 dark:hover:bg-background/80"
+const iconTileClassName =
+  "flex size-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary/15 via-accent/15 to-secondary/20 text-primary shadow-sm ring-1 ring-primary/10 transition-transform duration-300 group-hover:scale-105"
+
+function NotesBentoBackground() {
+  return (
+    <div className="absolute inset-x-4 top-4 rounded-xl border bg-background/70 p-3 opacity-80 transition-transform duration-300 group-hover:-translate-y-1">
+      <div className="h-2.5 w-2/3 rounded-full bg-primary/20" />
+      <div className="mt-3 h-2.5 w-full rounded-full bg-muted" />
+      <div className="mt-2 h-2.5 w-5/6 rounded-full bg-muted" />
+      <div className="mt-3 h-9 rounded-lg border bg-background/80" />
+    </div>
+  )
+}
+
+function CalendarBentoBackground() {
+  return (
+    <div className="absolute inset-x-4 top-4 rounded-xl border bg-background/70 p-3 opacity-80 transition-transform duration-300 group-hover:-translate-y-1">
+      <div className="grid grid-cols-7 gap-1">
+        {Array.from({ length: 14 }).map((_, index) => (
+          <div
+            key={index}
+            className={`h-5 rounded-md ${
+              index === 4 || index === 8 ? "bg-primary/45" : "bg-muted/70"
+            }`}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function QuizBentoBackground() {
+  return (
+    <div className="absolute inset-x-4 top-4 rounded-xl border bg-background/70 px-3 py-3 opacity-80 transition-transform duration-300 group-hover:-translate-y-1">
+      <div className="flex items-center justify-between">
+        <div className="h-2.5 w-2/3 rounded-full bg-muted" />
+        <CheckCircle2 className="size-4 text-primary" aria-hidden="true" />
+      </div>
+      <div className="mt-3 h-2 rounded-full bg-muted">
+        <div className="h-2 w-3/4 rounded-full bg-primary" />
+      </div>
+    </div>
+  )
+}
 
 function ProductPreview() {
   return (
     <div className="relative mx-auto w-full max-w-[44rem] lg:ml-auto lg:max-w-none">
-      <div
-        aria-hidden="true"
-        className="absolute inset-x-8 top-6 h-40 rounded-full bg-primary/20 blur-3xl"
-      />
-      <div
-        aria-hidden="true"
-        className="absolute -right-8 bottom-8 h-36 w-36 rounded-full bg-accent/20 blur-3xl"
-      />
-
-      <div className="relative rounded-[2rem] border border-white/60 bg-white/80 p-4 shadow-[0_40px_120px_-52px_rgba(15,23,42,0.55)] backdrop-blur-xl sm:p-5 dark:border-white/10 dark:bg-black/35">
-        <div className="grid items-stretch gap-4 xl:grid-cols-[minmax(0,1.08fr)_15.5rem]">
-          <Card className="h-full border-white/60 bg-white/90 py-0 shadow-[0_24px_70px_-40px_rgba(15,23,42,0.35)] dark:border-white/10 dark:bg-background/80">
-            <CardHeader className="grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-2 border-b border-border/60 pb-4">
+      <div className="relative rounded-2xl border border-white/70 bg-[linear-gradient(145deg,rgba(255,255,255,0.92),rgba(248,250,252,0.78))] p-3 shadow-[0_36px_110px_-58px_rgba(15,23,42,0.58)] backdrop-blur-xl sm:p-4 dark:border-white/10 dark:bg-[linear-gradient(145deg,rgba(15,23,42,0.82),rgba(2,6,23,0.64))]">
+        <BentoGrid className="auto-rows-[minmax(13.25rem,auto)] grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-6 xl:auto-rows-[13.25rem]">
+          <Card className={`${premiumCardClassName} py-0 shadow-[0_22px_72px_-48px_rgba(15,23,42,0.42)] sm:col-span-2 xl:col-span-4 xl:row-span-3`}>
+            <CardHeader className="grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-3 border-b border-border/50 px-5 py-5">
               <CardAction>
-                <Badge className="rounded-full px-3 py-1" variant="outline">
+                <Badge className="rounded-full border-primary/20 bg-primary/10 px-3 py-1" variant="outline">
                   <Sparkles className="size-3.5" />
                   Active model
                 </Badge>
@@ -153,33 +192,32 @@ function ProductPreview() {
                 Chat with the right model and keep the thread on task.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4 py-4">
-              <div className="rounded-2xl border border-primary/15 bg-primary/5 p-4">
+            <CardContent className="space-y-4 px-5 py-5">
+              <div className="rounded-xl border border-primary/15 bg-[linear-gradient(135deg,rgba(59,130,246,0.12),rgba(147,197,253,0.1))] p-4 transition-transform duration-300 group-hover/card:-translate-y-0.5">
                 <div className="flex items-start justify-between gap-3">
                   <div className="space-y-1">
                     <div className="text-sm font-medium">
-                      Explain photosynthesis like I&apos;m reviewing for a quiz.
+                      Explain photosynthesis for a quiz.
                     </div>
                     <div className="text-xs text-muted-foreground">
                       Tool: Quiz preparation
                     </div>
                   </div>
-                  <Badge className="rounded-full" variant="secondary">
+                  <Badge className="rounded-full border-primary/20 bg-primary/10 text-primary" variant="outline">
                     Quiz
                   </Badge>
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-border/70 bg-background/80 p-4">
+              <div className="rounded-xl border border-border/70 bg-background/80 p-4">
                 <div className="flex items-start gap-3">
-                  <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-xl bg-accent/20 text-accent-foreground">
-                    <Brain className="size-4 text-accent-foreground dark:text-background" />
+                  <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary">
+                    <Brain className="size-4 text-primary" />
                   </div>
                   <div className="space-y-3">
                     <p className="text-sm leading-6 text-foreground">
-                      Chlorophyll captures light energy, then the plant converts
-                      water and carbon dioxide into glucose and oxygen. Let&apos;s
-                      turn that into a short review quiz next.
+                      Chlorophyll captures light, then the plant turns water and
+                      carbon dioxide into glucose and oxygen.
                     </p>
                     <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
                       <span className="rounded-full border bg-background px-2.5 py-1">
@@ -213,76 +251,36 @@ function ProductPreview() {
             </CardContent>
           </Card>
 
-          <div className="grid auto-rows-fr gap-4">
-            <Card size="sm" className="h-full border-white/60 bg-white/85 py-0 dark:border-white/10 dark:bg-background/80">
-              <CardHeader className="border-b border-border/60 pb-3">
-                <div className="flex min-w-0 items-center justify-between gap-3">
-                  <CardTitle className="min-w-0 text-base">Notes</CardTitle>
-                  <FileText className="size-4 text-primary" />
-                </div>
-              </CardHeader>
-              <CardContent className="flex h-full flex-col gap-3 py-4">
-                <div className="h-2.5 w-2/3 rounded-full bg-primary/20" />
-                <div className="h-2.5 w-full rounded-full bg-muted" />
-                <div className="h-2.5 w-5/6 rounded-full bg-muted" />
-                <div className="mt-auto rounded-xl border bg-background/80 px-3 py-2 text-xs text-muted-foreground">
-                  Save explanations, summaries, and references in one place.
-                </div>
-              </CardContent>
-            </Card>
+          <BentoCard
+            name="Notes"
+            description="Save explanations and references."
+            Icon={FileText}
+            href="#workspace"
+            cta="View more"
+            background={<NotesBentoBackground />}
+            className="xl:col-span-2 xl:row-span-1"
+          />
 
-            <div className="grid auto-rows-fr gap-4 sm:grid-cols-2 xl:grid-cols-1">
-              <Card size="sm" className="h-full border-white/60 bg-white/85 py-0 dark:border-white/10 dark:bg-background/80">
-                <CardHeader className="border-b border-border/60 pb-3">
-                  <div className="flex min-w-0 items-center justify-between gap-3">
-                    <CardTitle className="min-w-0 text-base">Calendar</CardTitle>
-                    <CalendarDays className="size-4 text-secondary" />
-                  </div>
-                </CardHeader>
-                <CardContent className="flex h-full flex-col gap-3 py-4">
-                  <div className="grid grid-cols-7 gap-1">
-                    {Array.from({ length: 14 }).map((_, index) => (
-                      <div
-                        key={index}
-                        className={`h-7 rounded-md ${
-                          index === 4 || index === 8
-                            ? "bg-secondary/50"
-                            : "bg-muted/70"
-                        }`}
-                      />
-                    ))}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Plan deadlines, review blocks, and upcoming sessions.
-                  </p>
-                </CardContent>
-              </Card>
+          <BentoCard
+            name="Calendar"
+            description="Plan deadlines and review blocks."
+            Icon={CalendarDays}
+            href="#workspace"
+            cta="View more"
+            background={<CalendarBentoBackground />}
+            className="xl:col-span-2 xl:row-span-1"
+          />
 
-              <Card size="sm" className="h-full border-white/60 bg-white/85 py-0 dark:border-white/10 dark:bg-background/80">
-                <CardHeader className="border-b border-border/60 pb-3">
-                  <div className="flex min-w-0 items-center justify-between gap-3">
-                    <CardTitle className="min-w-0 text-base">Quiz</CardTitle>
-                    <ListChecks className="size-4 text-accent-foreground dark:text-accent" />
-                  </div>
-                </CardHeader>
-                <CardContent className="flex h-full flex-col gap-3 py-4">
-                  <div className="rounded-xl border bg-background/80 px-3 py-3">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-medium">Thread context ready</span>
-                      <CheckCircle2 className="size-4 text-primary" />
-                    </div>
-                    <div className="mt-3 h-2 rounded-full bg-muted">
-                      <div className="h-2 w-3/4 rounded-full bg-primary" />
-                    </div>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Generate, answer, and grade without leaving the study flow.
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        </div>
+          <BentoCard
+            name="Quiz"
+            description="Generate and grade in the same flow."
+            Icon={ListChecks}
+            href="#workspace"
+            cta="View more"
+            background={<QuizBentoBackground />}
+            className="xl:col-span-2 xl:row-span-1"
+          />
+        </BentoGrid>
       </div>
     </div>
   )
@@ -293,7 +291,7 @@ export default function LandingPage() {
     <main className="relative isolate min-h-screen overflow-hidden bg-background text-foreground">
       <div
         aria-hidden="true"
-        className="absolute inset-0 -z-20 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.16),transparent_28%),radial-gradient(circle_at_82%_14%,rgba(251,146,60,0.16),transparent_24%),radial-gradient(circle_at_70%_78%,rgba(16,185,129,0.14),transparent_22%),linear-gradient(180deg,rgba(255,255,255,0.76),rgba(248,250,252,0.98))] dark:bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.2),transparent_30%),radial-gradient(circle_at_82%_14%,rgba(251,146,60,0.16),transparent_24%),radial-gradient(circle_at_70%_78%,rgba(16,185,129,0.14),transparent_24%),linear-gradient(180deg,rgba(2,6,23,0.96),rgba(15,23,42,1))]"
+        className="absolute inset-0 -z-20 bg-[linear-gradient(135deg,rgba(59,130,246,0.12),rgba(255,255,255,0.7)_32%,rgba(16,185,129,0.1)_64%,rgba(251,146,60,0.1)),linear-gradient(180deg,rgba(255,255,255,0.8),rgba(248,250,252,0.98))] dark:bg-[linear-gradient(135deg,rgba(59,130,246,0.18),rgba(15,23,42,0.8)_32%,rgba(16,185,129,0.1)_64%,rgba(251,146,60,0.12)),linear-gradient(180deg,rgba(2,6,23,0.96),rgba(15,23,42,1))]"
       />
       <div
         aria-hidden="true"
@@ -307,7 +305,9 @@ export default function LandingPage() {
               <Brain className="size-5" />
             </div>
             <div className="min-w-0">
-              <div className="truncate text-sm font-semibold tracking-tight">IskoAI</div>
+              <div className="truncate text-sm font-semibold tracking-tight">
+                IskoAI
+              </div>
               <div className="text-xs text-muted-foreground">Student workspace</div>
             </div>
           </Link>
@@ -315,26 +315,26 @@ export default function LandingPage() {
           <div className="hidden items-center gap-6 md:flex">
             <a
               href="#workspace"
-              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+              className="text-sm text-muted-foreground transition-colors hover:text-primary"
             >
               Workspace
             </a>
             <a
               href="#flow"
-              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+              className="text-sm text-muted-foreground transition-colors hover:text-primary"
             >
               Study Flow
             </a>
             <a
               href="#control"
-              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+              className="text-sm text-muted-foreground transition-colors hover:text-primary"
             >
               Control
             </a>
           </div>
 
           <div className="flex shrink-0 items-center gap-2">
-            <Button asChild variant="ghost" className="hidden rounded-full px-4 sm:inline-flex">
+            <Button asChild variant="ghost" className="hidden rounded-full px-4 hover:text-primary sm:inline-flex">
               <Link to="/sign-in">Sign in</Link>
             </Button>
             <Button asChild className="rounded-full px-4 sm:px-5">
@@ -347,22 +347,23 @@ export default function LandingPage() {
         </div>
       </nav>
 
-      <section className={`${sectionShellClassName} pb-16 pt-14 lg:pb-24 lg:pt-20`}>
-        <div className="grid gap-14 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] lg:items-start lg:gap-16 xl:items-center">
-          <div className="max-w-2xl lg:pr-4">
-            <Badge variant="outline" className="rounded-full px-3 py-1">
-              <Zap className="size-3.5" />
-              AI study workspace for students
-            </Badge>
-
-            <h1 className="mt-6 max-w-3xl text-balance text-5xl font-semibold tracking-tight text-foreground sm:text-6xl lg:text-7xl">
-              Ask, organize, plan, and quiz in one study flow.
+      <section className={`${sectionShellClassName} min-h-[calc(100svh-4.5rem)] pb-10 pt-8 sm:pt-10 lg:pb-12 lg:pt-10`}>
+        <div className="grid gap-10 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] lg:items-center lg:gap-14 xl:gap-16">
+          <div className="max-w-2xl lg:-translate-y-12 lg:pr-4 xl:-translate-y-16">
+            <h1 className="max-w-3xl text-balance text-5xl font-semibold tracking-tight text-foreground sm:text-6xl lg:text-7xl">
+              Ask, organize, plan, and quiz in one{" "}
+              <AuroraText
+                colors={auroraTextColors}
+                speed={0.75}
+              >
+                study
+              </AuroraText>{" "}
+              flow.
             </h1>
 
-            <p className="mt-6 max-w-2xl text-lg leading-8 text-muted-foreground sm:text-xl">
-              IskoAI brings your assistant chat, notes, calendar, and quiz
-              generation into one workspace so useful study sessions turn into
-              saved output instead of scattered tabs.
+            <p className="mt-6 max-w-xl text-lg leading-8 text-muted-foreground sm:text-xl">
+              IskoAI brings chat, notes, planning, and quiz review into one
+              focused workspace for students.
             </p>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -382,29 +383,9 @@ export default function LandingPage() {
               </Button>
             </div>
 
-            <div className="mt-10 grid gap-3 sm:grid-cols-3 sm:auto-rows-fr">
-              <div className="h-full rounded-2xl border border-border/60 bg-background/70 px-4 py-4 backdrop-blur-sm">
-                <div className="text-sm font-medium">4 core workspaces</div>
-                <div className="mt-1 text-sm text-muted-foreground">
-                  Chat, Notes, Calendar, and Quiz
-                </div>
-              </div>
-              <div className="h-full rounded-2xl border border-border/60 bg-background/70 px-4 py-4 backdrop-blur-sm">
-                <div className="text-sm font-medium">Connected context</div>
-                <div className="mt-1 text-sm text-muted-foreground">
-                  Notes, files, folders, and thread history
-                </div>
-              </div>
-              <div className="h-full rounded-2xl border border-border/60 bg-background/70 px-4 py-4 backdrop-blur-sm">
-                <div className="text-sm font-medium">Review built in</div>
-                <div className="mt-1 text-sm text-muted-foreground">
-                  Generate and grade quizzes from discussion
-                </div>
-              </div>
-            </div>
           </div>
 
-          <div className="lg:pt-2 xl:pt-0">
+          <div>
             <ProductPreview />
           </div>
         </div>
@@ -420,12 +401,15 @@ export default function LandingPage() {
               Workspace
             </Badge>
             <h2 className="mt-4 text-balance text-3xl font-semibold tracking-tight sm:text-4xl">
-              Built around the features the system already gives students.
+              A focused{" "}
+              <AuroraText colors={auroraTextColors} speed={0.75}>
+                workspace
+              </AuroraText>{" "}
+              for real study tasks.
             </h2>
-            <p className="mt-4 text-base leading-7 text-muted-foreground sm:text-lg">
-              The point is not just getting an answer. The workspace helps you
-              keep the answer, connect it to your materials, schedule the next
-              step, and turn it into review.
+            <p className="mt-4 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
+              Ask a question, keep the useful context, plan the next move, and
+              turn understanding into review.
             </p>
           </div>
 
@@ -436,10 +420,10 @@ export default function LandingPage() {
               return (
                 <Card
                   key={feature.title}
-                  className="h-full gap-0 border-white/60 bg-white/75 py-0 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.36)] backdrop-blur-sm dark:border-white/10 dark:bg-background/70"
+                  className={`${premiumCardClassName} gap-0 py-0`}
                 >
-                  <CardHeader className="grid-cols-[auto_minmax(0,1fr)] content-start gap-x-4 gap-y-3 border-b border-border/60 pb-5 sm:min-h-[12rem]">
-                    <div className="row-span-3 flex size-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-sm shadow-primary/10">
+                  <CardHeader className="grid-cols-[auto_minmax(0,1fr)] content-start gap-x-4 gap-y-3 px-6 pb-4 pt-6">
+                    <div className={`row-span-3 ${iconTileClassName}`}>
                       <Icon className="size-5" />
                     </div>
                     <Badge variant="outline" className="w-fit rounded-full px-2.5 py-0.5">
@@ -452,12 +436,12 @@ export default function LandingPage() {
                       {feature.description}
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="py-5">
-                    <ul className="grid gap-3">
+                  <CardContent className="px-6 pb-6 pt-2">
+                    <ul className="grid gap-2.5 rounded-xl border border-border/50 bg-background/50 p-3.5">
                       {feature.bullets.map((bullet) => (
                         <li key={bullet} className="flex items-start gap-3">
                           <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-primary" />
-                          <span className="text-sm leading-6 text-muted-foreground sm:text-[0.95rem]">
+                          <span className="text-sm leading-6 text-muted-foreground">
                             {bullet}
                           </span>
                         </li>
@@ -479,28 +463,26 @@ export default function LandingPage() {
                 Study Flow
               </Badge>
               <h2 className="mt-4 text-balance text-3xl font-semibold tracking-tight sm:text-4xl">
-                One study session can move from question to review without
-                switching systems.
+                From question to review, without breaking{" "}
+                <AuroraText colors={auroraTextColors} speed={0.75}>
+                  focus.
+                </AuroraText>
+                
               </h2>
-              <p className="mt-4 text-base leading-7 text-muted-foreground sm:text-lg">
-                The landing page should reflect the real path through the app:
-                ask in chat, bring in context, save what matters, then test what
-                you understood.
+              <p className="mt-4 max-w-lg text-base leading-7 text-muted-foreground sm:text-lg">
+                Each step is designed to feed the next: ask, attach, save, and
+                test.
               </p>
 
-              <div className="mt-8 rounded-[1.75rem] border border-primary/20 bg-primary/5 p-5 shadow-[0_20px_70px_-46px_rgba(59,130,246,0.45)]">
+              <div className="mt-8 rounded-xl border border-primary/20 bg-[linear-gradient(135deg,rgba(59,130,246,0.1),rgba(16,185,129,0.06))] p-5 shadow-[0_20px_70px_-46px_rgba(59,130,246,0.45)] transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/30">
                 <div className="flex items-start gap-3">
-                  <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20">
-                    <Sparkles className="size-5" />
-                  </div>
                   <div>
                     <h3 className="text-lg font-medium tracking-tight">
-                      The value is continuity.
+                      Built for continuity
                     </h3>
                     <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                      Instead of treating chat, notes, planning, and review as
-                      separate tools, IskoAI keeps them close enough that each
-                      action can feed the next one.
+                      Chat, notes, planning, and review stay close enough that
+                      progress does not get lost between tools.
                     </p>
                   </div>
                 </div>
@@ -511,10 +493,10 @@ export default function LandingPage() {
               {studyFlow.map((item) => (
                 <Card
                   key={item.step}
-                  className="h-full border-white/60 bg-white/70 py-0 backdrop-blur-sm dark:border-white/10 dark:bg-background/70"
+                  className={`${premiumCardClassName} py-0`}
                 >
-                  <CardContent className="grid gap-4 px-5 py-5 sm:grid-cols-[4rem_minmax(0,1fr)] sm:items-start">
-                    <div className="flex size-14 items-center justify-center rounded-2xl bg-muted text-lg font-semibold tracking-tight text-foreground">
+                  <CardContent className="grid gap-4 px-6 py-6 sm:grid-cols-[4rem_minmax(0,1fr)] sm:items-center">
+                    <div className="flex size-14 items-center justify-center rounded-xl bg-[linear-gradient(135deg,rgba(59,130,246,0.14),rgba(251,146,60,0.12))] text-lg font-semibold tracking-tight text-foreground ring-1 ring-border/70 transition-transform duration-300 group-hover:scale-105">
                       {item.step}
                     </div>
                     <div>
@@ -543,12 +525,11 @@ export default function LandingPage() {
               Control
             </Badge>
             <h2 className="mt-4 text-balance text-3xl font-semibold tracking-tight sm:text-4xl">
-              Student-first on the surface, with enough control behind it.
+              Clean for students, manageable for teams.
             </h2>
-            <p className="mt-4 text-base leading-7 text-muted-foreground sm:text-lg">
-              The product leads with student workflows, but the system also
-              includes search, temporary chats, and admin-controlled model
-              availability so the workspace stays manageable as it grows.
+            <p className="mt-4 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
+              Helpful study workflows stay easy to use, while search and model
+              controls keep the workspace organized as it grows.
             </p>
           </div>
 
@@ -559,10 +540,10 @@ export default function LandingPage() {
               return (
                 <Card
                   key={card.title}
-                  className="h-full gap-0 border-white/60 bg-white/80 py-0 shadow-[0_20px_70px_-46px_rgba(15,23,42,0.3)] backdrop-blur-sm dark:border-white/10 dark:bg-background/70"
+                  className={`${premiumCardClassName} gap-0 py-0`}
                 >
-                  <CardHeader className="content-start gap-3 border-b border-border/60 pb-5 sm:min-h-[10.5rem]">
-                    <div className="flex size-11 items-center justify-center rounded-2xl bg-accent/15">
+                  <CardHeader className="content-start gap-3 px-6 py-6">
+                    <div className={iconTileClassName}>
                       <Icon className="size-5 text-foreground" />
                     </div>
                     <CardTitle className="text-xl tracking-tight">
@@ -581,19 +562,15 @@ export default function LandingPage() {
 
       <section className="py-20">
         <div className={sectionShellClassName}>
-          <Card className="overflow-hidden border-primary/20 bg-[linear-gradient(135deg,rgba(59,130,246,0.11),rgba(16,185,129,0.06),rgba(251,146,60,0.12))] py-0 shadow-[0_36px_120px_-60px_rgba(15,23,42,0.55)]">
+          <Card className="overflow-hidden rounded-xl border-primary/20 bg-[linear-gradient(135deg,rgba(59,130,246,0.12),rgba(16,185,129,0.07),rgba(251,146,60,0.13))] py-0 shadow-[0_36px_120px_-60px_rgba(15,23,42,0.55)] transition-all duration-300 hover:-translate-y-1 hover:border-primary/30">
             <CardContent className="px-6 py-8 sm:px-8 sm:py-10">
               <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
                 <div className="max-w-2xl">
-                  <Badge variant="outline" className="rounded-full border-white/40 bg-background/60 px-3 py-1">
-                    Ready to start
-                  </Badge>
-                  <h2 className="mt-4 text-balance text-3xl font-semibold tracking-tight sm:text-4xl">
+                  <h2 className="text-balance text-3xl font-semibold tracking-tight sm:text-4xl">
                     Turn your next study session into something you can keep.
                   </h2>
-                  <p className="mt-4 text-base leading-7 text-muted-foreground sm:text-lg">
-                    Start with chat, attach context when you need it, save the
-                    useful parts, and end with a quiz instead of another lost tab.
+                  <p className="mt-4 max-w-xl text-base leading-7 text-muted-foreground sm:text-lg">
+                    Start with chat, save what matters, and end with a quiz.
                   </p>
                 </div>
 
@@ -626,7 +603,9 @@ export default function LandingPage() {
               <Brain className="size-5" />
             </div>
             <div>
-              <div className="text-sm font-semibold tracking-tight">IskoAI</div>
+              <div className="text-sm font-semibold tracking-tight">
+                IskoAI
+              </div>
               <div className="text-xs text-muted-foreground">
                 Chat, notes, calendar, and quiz in one workspace
               </div>
@@ -634,19 +613,19 @@ export default function LandingPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-5 text-sm text-muted-foreground">
-            <a href="#workspace" className="transition-colors hover:text-foreground">
+            <a href="#workspace" className="transition-colors hover:text-primary">
               Workspace
             </a>
-            <a href="#flow" className="transition-colors hover:text-foreground">
+            <a href="#flow" className="transition-colors hover:text-primary">
               Study Flow
             </a>
-            <a href="#control" className="transition-colors hover:text-foreground">
+            <a href="#control" className="transition-colors hover:text-primary">
               Control
             </a>
-            <Link to="/sign-in" className="transition-colors hover:text-foreground">
+            <Link to="/sign-in" className="transition-colors hover:text-primary">
               Sign in
             </Link>
-            <Link to="/sign-up" className="transition-colors hover:text-foreground">
+            <Link to="/sign-up" className="transition-colors hover:text-primary">
               Create account
             </Link>
           </div>

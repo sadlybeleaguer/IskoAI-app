@@ -17,6 +17,7 @@ import { ChatFileAttachments } from "@/components/chat/chat-file-attachments"
 import { chatToolOptions } from "@/components/chat/chat-tool-options"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
+import { Marquee } from "@/components/ui/marquee"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   DropdownMenu,
@@ -31,7 +32,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Textarea } from "@/components/ui/textarea"
 import { acceptedChatFileInputAccept } from "@/services/db.service"
-import { starterPrompts, suggestedPrompts } from "@/utils/chat"
+import { recommendationPrompts } from "@/utils/chat"
 import { cn } from "@/utils/cn"
 
 export function ChatModelMenu({
@@ -342,33 +343,25 @@ export function ChatComposer({
       ) : null}
 
       {isEmptyState ? (
-        <div className="grid gap-3 px-3 sm:px-8">
-          <div className="flex flex-wrap gap-2">
-            {starterPrompts.map((prompt) => (
+        <div className="relative overflow-hidden px-1 sm:px-6">
+          <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-10 bg-gradient-to-r from-background to-transparent" />
+          <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-10 bg-gradient-to-l from-background to-transparent" />
+          <Marquee
+            className="py-1 [--duration:58s] [--gap:0.5rem]"
+            pauseOnHover
+            repeat={3}
+          >
+            {recommendationPrompts.map((prompt) => (
               <button
                 key={prompt}
                 type="button"
-                className="rounded-md border px-2.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="h-10 max-w-[22rem] shrink-0 rounded-full border border-border/70 bg-card px-4 text-sm font-medium text-muted-foreground shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:bg-muted hover:text-foreground hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
                 onClick={() => onPromptClick(prompt)}
               >
-                {prompt.trim().replace(/\s+/g, " ").slice(0, 40)}
+                <span className="block truncate">{prompt}</span>
               </button>
             ))}
-          </div>
-
-          <div className="grid gap-1 text-left sm:max-w-xl">
-            {suggestedPrompts.map((item) => (
-              <button
-                key={item.title}
-                type="button"
-                className="rounded-lg px-3 py-2 transition-colors hover:bg-muted"
-                onClick={() => onPromptClick(item.prompt)}
-              >
-                <div className="text-sm font-medium">{item.title}</div>
-                <div className="text-sm text-muted-foreground">{item.hint}</div>
-              </button>
-            ))}
-          </div>
+          </Marquee>
         </div>
       ) : null}
     </form>
