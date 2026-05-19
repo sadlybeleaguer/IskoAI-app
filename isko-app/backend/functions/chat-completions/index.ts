@@ -17,7 +17,7 @@ import {
   createOpenAICompatibleStream,
 } from "../../services/ai.service.ts"
 
-const ALLOWED_TOOLS = new Set(["", "Math", "Programming", "Complex Problems", "Quiz"])
+const ALLOWED_TOOLS = new Set(["", "Math", "Programming", "Complex Problems"])
 const MAX_ATTACHED_FILE_CONTEXT_CHARACTERS = 30000
 const MAX_ATTACHED_FILE_CONTEXT_PER_FILE = 12000
 
@@ -128,27 +128,11 @@ function isMissingThreadAttachmentSchemaError(error: { code?: string; message?: 
   )
 }
 
-function isMissingFolderSchemaError(error: { code?: string; message?: string } | null) {
+function isMissingThreadFileSchemaError(error: { code?: string; message?: string } | null) {
   return (
     error?.code === "PGRST204" ||
     error?.code === "PGRST205" ||
-    /relation .*chat_folders.* does not exist|column .*folder_id.* does not exist|column .*system_prompt.* does not exist|could not find the table/i.test(
-      error?.message ?? "",
-    )
-  )
-}
-
-function isMissingAttachedFileSchemaError(
-  error: { code?: string; message?: string } | null,
-  tableName: "chat_folder_files" | "chat_thread_files",
-) {
-  return (
-    error?.code === "PGRST204" ||
-    error?.code === "PGRST205" ||
-    new RegExp(
-      `relation .*${tableName}.* does not exist|column .*error_message.* does not exist|could not find the table`,
-      "i",
-    ).test(
+    /relation .*chat_thread_files.* does not exist|column .*error_message.* does not exist|could not find the table/i.test(
       error?.message ?? "",
     )
   )
@@ -290,19 +274,39 @@ function extractPlainTextFromNoteContent(value: string) {
     .trim()
 }
 
-async function resolveNoteById(
+async function resolveAttachedNoteContext(
   supabase: SupabaseClient,
-  attachedNoteId: string | null,
-  attachedNoteTitle: string | null,
+  threadId: string,
 ): Promise<AttachedNoteContext | null> {
-  if (!attachedNoteId) {
+  const { data: thread, error: threadError } = await supabase
+    .from("chat_threads")
+    .select("attached_note_id, attached_note_title")
+    .eq("id", threadId)
+    .maybeSingle<{
+      attached_note_id: string | null
+      attached_note_title: string | null
+    }>()
+
+  if (threadError) {
+    if (isMissingThreadAttachmentSchemaError(threadError)) {
+      return null
+    }
+
+    throw new HttpError(500, threadError.message)
+  }
+
+  if (!thread) {
+    throw new HttpError(404, "Chat thread was not found.")
+  }
+
+  if (!thread.attached_note_id) {
     return null
   }
 
   const { data: note, error: noteError } = await supabase
     .from("notes")
     .select("title, content")
-    .eq("id", attachedNoteId)
+    .eq("id", thread.attached_note_id)
     .maybeSingle<{
       content: string
       title: string
@@ -324,32 +328,27 @@ async function resolveNoteById(
 
   return {
     content: content.slice(0, 12000),
-    title: attachedNoteTitle?.trim() || note.title?.trim() || "Untitled note",
+    title:
+      thread.attached_note_title?.trim() ||
+      note.title?.trim() ||
+      "Untitled note",
   }
 }
 
 async function resolveAttachedFileContexts(
   supabase: SupabaseClient,
-  {
-    parentField,
-    parentId,
-    tableName,
-  }: {
-    parentField: "folder_id" | "thread_id"
-    parentId: string
-    tableName: "chat_folder_files" | "chat_thread_files"
-  },
+  threadId: string,
 ): Promise<AttachedFileContext[]> {
   const { data, error } = await supabase
-    .from(tableName)
+    .from("chat_thread_files")
     .select("original_name, extracted_text")
-    .eq(parentField, parentId)
+    .eq("thread_id", threadId)
     .eq("status", "ready")
     .order("created_at", { ascending: true })
     .returns<Array<{ extracted_text: string; original_name: string }>>()
 
   if (error) {
-    if (isMissingAttachedFileSchemaError(error, tableName)) {
+    if (isMissingThreadFileSchemaError(error)) {
       return []
     }
 
@@ -385,95 +384,6 @@ async function resolveAttachedFileContexts(
   return attachedFiles
 }
 
-async function resolveChatContext(
-  supabase: SupabaseClient,
-  threadId: string,
-) {
-  const { data: thread, error: threadError } = await supabase
-    .from("chat_threads")
-    .select("id, selected_tool, attached_note_id, attached_note_title, folder_id")
-    .eq("id", threadId)
-    .maybeSingle<{
-      attached_note_id: string | null
-      attached_note_title: string | null
-      folder_id: string | null
-      id: string
-      selected_tool: string | null
-    }>()
-
-  if (threadError) {
-    if (isMissingThreadAttachmentSchemaError(threadError)) {
-      throw new HttpError(500, "Chat thread context is unavailable.")
-    }
-
-    throw new HttpError(500, threadError.message)
-  }
-
-  if (!thread) {
-    throw new HttpError(404, "Chat thread was not found.")
-  }
-
-  let folder:
-    | {
-        attached_note_id: string | null
-        attached_note_title: string | null
-        id: string
-        selected_tool: string | null
-        system_prompt: string | null
-      }
-    | null = null
-
-  if (thread.folder_id) {
-    const { data: folderData, error: folderError } = await supabase
-      .from("chat_folders")
-      .select("id, selected_tool, system_prompt, attached_note_id, attached_note_title")
-      .eq("id", thread.folder_id)
-      .maybeSingle<{
-        attached_note_id: string | null
-        attached_note_title: string | null
-        id: string
-        selected_tool: string | null
-        system_prompt: string | null
-      }>()
-
-    if (folderError) {
-      if (!isMissingFolderSchemaError(folderError)) {
-        throw new HttpError(500, folderError.message)
-      }
-    } else {
-      folder = folderData ?? null
-    }
-  }
-
-  const hasThreadNote = Boolean(thread.attached_note_id)
-  const [threadNoteContext, folderNoteContext, folderFileContexts, threadFileContexts] =
-    await Promise.all([
-      resolveNoteById(supabase, thread.attached_note_id, thread.attached_note_title),
-      hasThreadNote || !folder?.attached_note_id
-        ? Promise.resolve(null)
-        : resolveNoteById(supabase, folder.attached_note_id, folder.attached_note_title),
-      folder?.id
-        ? resolveAttachedFileContexts(supabase, {
-            parentField: "folder_id",
-            parentId: folder.id,
-            tableName: "chat_folder_files",
-          })
-        : Promise.resolve([]),
-      resolveAttachedFileContexts(supabase, {
-        parentField: "thread_id",
-        parentId: thread.id,
-        tableName: "chat_thread_files",
-      }),
-    ])
-
-  return {
-    attachedFileContexts: [...folderFileContexts, ...threadFileContexts],
-    attachedNoteContext: threadNoteContext ?? folderNoteContext,
-    selectedTool: thread.selected_tool?.trim() || folder?.selected_tool?.trim() || "",
-    systemPrompts: folder?.system_prompt?.trim() ? [folder.system_prompt.trim()] : [],
-  }
-}
-
 Deno.serve(async (request: Request) => {
   if (request.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders })
@@ -495,13 +405,14 @@ Deno.serve(async (request: Request) => {
 
     const payload = (await request.json()) as CompletionPayload
     const model = requireModel(payload.model)
-    requireSelectedTool(payload.selectedTool)
+    const selectedTool = requireSelectedTool(payload.selectedTool)
     const threadId = requireThreadId(payload.threadId)
     const messages = requireMessages(payload.messages)
     const modelConfig = await resolveModelConfig(supabase, model)
     const providerConfig = getProviderConfig(modelConfig.provider)
     const latestUserPrompt = getLatestUserPrompt(messages)
-    const chatContext = await resolveChatContext(supabase, threadId)
+    const attachedNoteContext = await resolveAttachedNoteContext(supabase, threadId)
+    const attachedFileContexts = await resolveAttachedFileContexts(supabase, threadId)
 
     const body = isPlaceholderMode(providerConfig)
       ? createPlaceholderStream(providerConfig, modelConfig.key, latestUserPrompt)
@@ -509,10 +420,9 @@ Deno.serve(async (request: Request) => {
           providerConfig,
           modelConfig.key,
           messages,
-          chatContext.selectedTool,
-          chatContext.attachedNoteContext,
-          chatContext.attachedFileContexts,
-          chatContext.systemPrompts,
+          selectedTool,
+          attachedNoteContext,
+          attachedFileContexts,
         )
 
     return streamResponse(body)

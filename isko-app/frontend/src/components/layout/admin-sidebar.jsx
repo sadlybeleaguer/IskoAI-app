@@ -129,8 +129,10 @@ export function AdminSidebar({
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button type="button" variant="ghost" className={triggerClassName}>
-          <span className="flex size-8 items-center justify-center rounded-md border bg-background text-xs font-medium">
-            {initials}
+          <span className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border/70 bg-background p-0.5">
+            <span className="flex size-full items-center justify-center rounded-full bg-muted text-xs font-medium text-foreground">
+              {initials}
+            </span>
           </span>
           {compact ? null : (
             <>
@@ -201,7 +203,7 @@ export function AdminSidebar({
         <div className="mt-auto border-t border-border/50 pt-3">
           {renderUserMenu({
             compact: true,
-            triggerClassName: "size-10 justify-center px-0 hover:bg-primary/5",
+            triggerClassName: "size-10 justify-center px-0 hover:bg-muted/70",
           })}
         </div>
       </div>

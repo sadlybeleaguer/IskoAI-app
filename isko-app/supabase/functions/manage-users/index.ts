@@ -117,15 +117,6 @@ function trimName(value: unknown) {
   return typeof value === "string" ? value.trim() : ""
 }
 
-function isMissingEmailAvailabilityRpc(error: { code?: string; message?: string } | null) {
-  return (
-    error?.code === "PGRST202" ||
-    /could not find the function .*is_email_in_use.*schema cache/i.test(
-      error?.message ?? "",
-    )
-  )
-}
-
 function validateRole(value: unknown): Role {
   if (value === DEFAULT_ROLE || value === SUPERADMIN_ROLE) {
     return value
@@ -356,29 +347,6 @@ async function ensureEmailIsAvailable(
     input_email: email,
     excluded_user_id: excludeUserId ?? null,
   })
-
-  if (isMissingEmailAvailabilityRpc(error)) {
-    let query = serviceClient
-      .from("profiles")
-      .select("id", { count: "exact", head: true })
-      .eq("email", email)
-
-    if (excludeUserId) {
-      query = query.neq("id", excludeUserId)
-    }
-
-    const { count, error: fallbackError } = await query
-
-    if (fallbackError) {
-      throw new HttpError(500, fallbackError.message)
-    }
-
-    if ((count ?? 0) > 0) {
-      throw new HttpError(409, DUPLICATE_EMAIL_ERROR)
-    }
-
-    return
-  }
 
   if (error) {
     throw new HttpError(500, error.message)

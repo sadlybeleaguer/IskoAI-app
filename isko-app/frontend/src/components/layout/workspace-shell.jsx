@@ -176,8 +176,10 @@ export function WorkspaceShell({
   )
 
   const UserAvatar = () => (
-    <span className="flex size-8 items-center justify-center rounded-lg border border-border/60 bg-gradient-to-br from-primary/10 to-muted/40 text-xs font-semibold text-primary shadow-sm transition-all duration-200 group-hover:shadow-primary/10">
-      {initials}
+    <span className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border/70 bg-background p-0.5 shadow-sm transition-all duration-200 group-hover:border-primary/30 group-hover:shadow-primary/10">
+      <span className="flex size-full items-center justify-center rounded-full bg-gradient-to-br from-primary/10 to-muted/40 text-xs font-semibold text-primary">
+        {initials}
+      </span>
     </span>
   )
 
@@ -191,7 +193,7 @@ export function WorkspaceShell({
           type="button"
           variant="ghost"
           className={cn(
-            "transition-all duration-200 hover:bg-primary/5",
+            "transition-all duration-200 hover:bg-muted/70",
             triggerClassName,
           )}
         >
@@ -365,7 +367,7 @@ export function WorkspaceShell({
       <div className="mt-auto border-t border-border/50 pt-3">
         {renderUserMenu({
           compact: true,
-          triggerClassName: "group size-10 justify-center px-0 hover:bg-primary/5",
+          triggerClassName: "group size-10 justify-center px-0 hover:bg-muted/70",
         })}
       </div>
     </div>
@@ -456,7 +458,7 @@ export function WorkspaceShell({
         <div className="ml-auto">
           {renderUserMenu({
             triggerClassName:
-              "group h-8 justify-start rounded-full border border-border/50 bg-background/60 px-2.5 shadow-none transition-all duration-200 hover:border-primary/30 hover:bg-primary/5 hover:shadow-sm hover:shadow-primary/10",
+              "group h-9 max-w-[12.5rem] justify-start gap-2 overflow-hidden rounded-full border border-border/60 bg-background/70 py-0 pl-1 pr-2 shadow-none transition-all duration-200 hover:border-primary/30 hover:bg-muted/70 hover:shadow-sm hover:shadow-primary/10",
           })}
         </div>
       </div>

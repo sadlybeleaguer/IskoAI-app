@@ -35,14 +35,9 @@ import { Textarea } from "@/components/ui/textarea"
 import { useAuth } from "@/context/auth-context"
 import { supabase } from "@/lib/supabaseClient"
 import { cn } from "@/lib/utils"
+import { recommendationPrompts } from "@/utils/chat"
 
 const starterThreads = []
-
-const starterPrompts = [
-  "Draft an onboarding checklist for a new product hire.",
-  "Summarize a meeting into decisions, risks, and next steps.",
-  "Turn a rough idea into a one-page project brief.",
-]
 
 const landingActions = [
   {
@@ -294,8 +289,10 @@ export function ChatPage() {
           variant="ghost"
           className={triggerClassName}
         >
-          <span className="flex size-8 items-center justify-center rounded-md border bg-background text-xs font-medium">
-            {initials}
+          <span className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border/70 bg-background p-0.5">
+            <span className="flex size-full items-center justify-center rounded-full bg-muted text-xs font-medium text-foreground">
+              {initials}
+            </span>
           </span>
           <span className="min-w-0 flex-1 truncate text-left">{displayName}</span>
           < MoreHorizontal data-icon="inline-end" />
@@ -349,15 +346,15 @@ export function ChatPage() {
           className="min-h-36 resize-none border-0 px-5 py-5 shadow-none focus-visible:ring-0"
         />
         <div className="flex flex-wrap items-center justify-between gap-3 border-t px-5 py-3">
-          <div className="flex flex-wrap items-center gap-2">
-            {starterPrompts.map((prompt) => (
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            {recommendationPrompts.map((prompt) => (
               <button
                 key={prompt}
                 type="button"
-                className="rounded-md border px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="h-10 max-w-[22rem] rounded-full border border-border/70 bg-card px-4 text-sm font-medium text-muted-foreground shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:bg-muted hover:text-foreground hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
                 onClick={() => handlePromptClick(prompt)}
               >
-                {getThreadTitle(prompt)}
+                <span className="block truncate">{prompt}</span>
               </button>
             ))}
           </div>

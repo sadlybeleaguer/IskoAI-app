@@ -2,11 +2,14 @@ import { useEffect, useState } from "react"
 import { Brain, MessageSquarePlus, Sparkles } from "lucide-react"
 
 import { ChatFileAttachments } from "@/components/chat/chat-file-attachments"
+import { ChatMarkdown } from "@/components/chat/chat-markdown"
+import { AuroraText } from "@/components/ui/aurora-text"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/utils/cn"
 
 const streamingStatusSteps = ["Thinking", "Working through it", "Finishing up"]
+const auroraTextColors = ["#2563eb", "#3b82f6", "#60a5fa", "#93c5fd"]
 
 function getGreetingByHour(date = new Date()) {
   const hour = date.getHours()
@@ -149,7 +152,7 @@ export function ChatThreadView({
         const userBubbleClassName =
           "max-w-3xl rounded-[1.35rem] border border-zinc-200 bg-white px-4 py-3 text-sm leading-6 text-zinc-950 whitespace-pre-wrap shadow-[0_1px_2px_rgba(15,23,42,0.08)] transition-colors"
         const assistantContentClassName =
-          "max-w-3xl px-1 text-sm leading-6 text-foreground whitespace-pre-wrap"
+          "max-w-3xl px-1 text-sm leading-6 text-foreground"
 
         if (isAssistant && !hasContent && !isStreaming) {
           return null
@@ -173,7 +176,7 @@ export function ChatThreadView({
                 {isStreaming ? <AssistantStreamingStatus /> : null}
                 {hasContent ? (
                   <div className={assistantContentClassName}>
-                    {message.content}
+                    <ChatMarkdown content={message.content} />
                   </div>
                 ) : null}
               </div>
@@ -200,7 +203,9 @@ export function ChatEmptyState({ children }) {
             <span className="flex size-11 items-center justify-center rounded-full border bg-primary/8 text-primary shadow-sm shadow-primary/10">
               <Brain className="size-5" />
             </span>
-            {greeting}
+            <AuroraText colors={auroraTextColors} speed={0.75}>
+              {greeting}
+            </AuroraText>
           </div>
           <p className="text-sm text-muted-foreground">Welcome back to IskoAI</p>
         </div>

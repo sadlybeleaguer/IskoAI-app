@@ -185,13 +185,6 @@ export function getToolInstruction(selectedTool: string) {
         "If the user asks which tool is active, answer that the current tool is Complex Problems.",
         "Break the problem into parts, reason explicitly about tradeoffs, and end with concrete next steps.",
       ].join(" ")
-    case "Quiz":
-      return [
-        "Current tool: Quiz.",
-        "You are operating in Quiz tool mode for this thread.",
-        "If the user asks which tool is active, answer that the current tool is Quiz.",
-        "Help the user generate study quizzes, clarify question intent, explain answers, and review weak areas. Keep answers focused on learning and assessment.",
-      ].join(" ")
     default:
       return ""
   }
@@ -207,7 +200,7 @@ export function buildAttachedNoteInstruction(attachedNoteContext: AttachedNoteCo
     "You can read the attached note content in this request.",
     "Do not say that you cannot access the user's notes when attached note content is provided below.",
     "If the user asks about their notes, answer from the attached note content first.",
-    "Treat the attached note as authoritative context for this chat unless the user tells you to ignore it.",
+    "Treat the attached note as authoritative context for this thread unless the user tells you to ignore it.",
     "Attached note content:",
     attachedNoteContext.content,
   ].join("\n\n")
@@ -236,7 +229,7 @@ export function buildRequestContextBlock(
   attachedFileContexts: AttachedFileContext[],
 ) {
   const sections = [
-    "The following chat context is real application data provided with this request.",
+    "The following thread context is real application data provided with this request.",
     "Use it directly when answering. Do not claim you cannot access notes or tools when they are included here.",
   ]
 
@@ -265,7 +258,7 @@ export function buildRequestContextBlock(
     return ""
   }
 
-  return ["[CHAT_CONTEXT]", ...sections, "[END_CHAT_CONTEXT]"].join("\n\n")
+  return ["[THREAD_CONTEXT]", ...sections, "[END_THREAD_CONTEXT]"].join("\n\n")
 }
 
 export function injectRequestContext(
@@ -472,7 +465,6 @@ export async function createOpenAICompatibleStream(
   selectedTool: string,
   attachedNoteContext: AttachedNoteContext | null,
   attachedFileContexts: AttachedFileContext[],
-  extraSystemPrompts: string[] = [],
 ) {
   const upstreamConversation = injectRequestContext(
     messages,
@@ -481,7 +473,6 @@ export async function createOpenAICompatibleStream(
     attachedFileContexts,
   )
   const systemMessages = [
-    ...extraSystemPrompts,
     config.systemPrompt,
     getToolInstruction(selectedTool),
     buildAttachedNoteInstruction(attachedNoteContext),

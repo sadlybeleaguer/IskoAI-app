@@ -14,6 +14,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
+import { ShineBorder } from "@/components/ui/shine-border"
 import { useAuth } from "@/context/auth-context"
 import { envVariableHints, supabase } from "@/lib/supabaseClient"
 import { cn } from "@/utils/cn"
@@ -421,7 +422,8 @@ export function AuthPage({ mode }) {
 
       <main className="mx-auto flex min-h-screen w-full max-w-xl items-center px-4 py-10">
         <div className="w-full">
-          <Card className="border-white/60 bg-white/82 py-0 shadow-[0_30px_120px_-44px_rgba(15,23,42,0.55)] backdrop-blur dark:border-white/10 dark:bg-black/40">
+          <Card className="relative border-white/60 bg-white/82 py-0 shadow-[0_30px_120px_-44px_rgba(15,23,42,0.55)] backdrop-blur dark:border-white/10 dark:bg-black/40">
+            <ShineBorder shineColor={["#A07CFE", "#FE8FB5", "#FFBE7B"]} />
             <CardHeader className="gap-3 border-b border-border/70 px-6 py-6">
               <div className="inline-flex size-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20">
                 <KeyRound className="size-5" />
