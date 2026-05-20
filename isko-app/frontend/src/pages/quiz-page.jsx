@@ -1,21 +1,23 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import {
+  Archive,
   PanelRightClose,
   PanelRightOpen,
   Loader2,
   Plus,
   SlidersHorizontal,
   Sparkles,
-  SquarePen,
   Trash2,
 } from "lucide-react"
 import { useSearchParams } from "react-router-dom"
+import { toast } from "sonner"
 
 import { ChatComposer, ChatModelMenu } from "@/components/chat/chat-composer"
 import { ChatNotePicker } from "@/components/chat/chat-note-picker"
 import { ChatEmptyState, ChatThreadView } from "@/components/chat/chat-content"
 import { WorkspaceShell } from "@/components/layout/workspace-shell"
 import { QuizAttemptDialog } from "@/components/quiz/quiz-attempt-dialog"
+import { ActionConfirmDialog } from "@/components/ui/action-confirm-dialog"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -82,6 +84,9 @@ function getQuizContextState(activeThread, messages) {
 
   const usableMessages = getUsableQuizContextMessages(messages)
   const userMessages = usableMessages.filter((message) => message.role === "user")
+  const assistantMessages = usableMessages.filter(
+    (message) => message.role === "assistant",
+  )
   const totalCharacters = usableMessages.reduce(
     (sum, message) => sum + message.content.trim().length,
     0,
@@ -105,6 +110,17 @@ function getQuizContextState(activeThread, messages) {
         "Add a clearer student prompt before generating a quiz.",
       errorMessage: "This Quiz thread needs a clearer student prompt before a quiz can be generated.",
       title: "More thread context needed",
+    }
+  }
+
+  if (!assistantMessages.length) {
+    return {
+      canGenerate: false,
+      description:
+        "Wait for the assistant explanation to finish before generating a quiz.",
+      errorMessage:
+        "The active Quiz thread does not have enough chat context yet. Ask at least one question and wait for an assistant explanation before generating a quiz.",
+      title: "Assistant explanation needed",
     }
   }
 
@@ -242,10 +258,7 @@ function QuizPanel({
             <CardHeader>
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <SquarePen data-icon="inline-start" />
-                    <CardTitle>Quiz setup</CardTitle>
-                  </div>
+                  <CardTitle>Quiz setup</CardTitle>
                   <CardDescription>
                     Generate from the active Quiz thread. Open settings to adjust
                     focus, difficulty, question count, and formats.
@@ -531,7 +544,9 @@ export function QuizPage() {
   const [isLoadingAttempts, setIsLoadingAttempts] = useState(true)
   const [isGenerating, setIsGenerating] = useState(false)
   const [isGrading, setIsGrading] = useState(false)
+  const [isSubmittingAttemptAction, setIsSubmittingAttemptAction] = useState(false)
   const [pageError, setPageError] = useState("")
+  const [pendingAttemptAction, setPendingAttemptAction] = useState(null)
 
   const handleQuizPrompt = useCallback(
     async ({ attachedNote, content, selectedModelKey, thread }) => {
@@ -572,7 +587,7 @@ export function QuizPage() {
         setActiveAttemptId(attempt.id)
         setSearchParams({ attemptId: attempt.id }, { replace: true })
         setAnswers(normalizeAnswerMap(attempt))
-        setIsQuizDialogOpen(true)
+        toast.success("Quiz generated. Click Take the quiz when you're ready.")
       } catch (error) {
         setPageError(getErrorMessage(error))
       } finally {
@@ -747,7 +762,7 @@ export function QuizPage() {
       setActiveAttemptId(attempt.id)
       setSearchParams({ attemptId: attempt.id }, { replace: true })
       setAnswers(normalizeAnswerMap(attempt))
-      setIsQuizDialogOpen(true)
+      toast.success("Quiz generated. Click Take the quiz when you're ready.")
     } catch (error) {
       setPageError(getErrorMessage(error))
     } finally {
@@ -825,21 +840,43 @@ export function QuizPage() {
     }
   }
 
-  const handleArchiveAttempt = async (attemptId) => {
-    if (attemptId.startsWith("draft-")) {
-      setDraftAttempt((currentDraft) =>
-        currentDraft?.id === attemptId ? null : currentDraft,
-      )
-      if (attemptId === activeAttemptId) {
-        setActiveAttemptId(null)
-        setSearchParams({}, { replace: true })
-      }
+  const handleArchiveAttempt = (attemptId) => {
+    const attempt = visibleAttempts.find((currentAttempt) => currentAttempt.id === attemptId)
+
+    if (!attempt) {
       return
     }
 
-    if (!user?.id) return
+    setPendingAttemptAction(attempt)
+  }
+
+  const confirmArchiveAttempt = async () => {
+    const attempt = pendingAttemptAction
+
+    if (!attempt || isSubmittingAttemptAction) {
+      return
+    }
+
+    setIsSubmittingAttemptAction(true)
+
+    const attemptId = attempt.id
 
     try {
+      if (attemptId.startsWith("draft-")) {
+        setDraftAttempt((currentDraft) =>
+          currentDraft?.id === attemptId ? null : currentDraft,
+        )
+        if (attemptId === activeAttemptId) {
+          setActiveAttemptId(null)
+          setSearchParams({}, { replace: true })
+        }
+        setPendingAttemptAction(null)
+        toast.success("Discarded draft quiz.")
+        return
+      }
+
+      if (!user?.id) return
+
       await archiveQuizAttempt({ attemptId, userId: user.id })
       setAttempts((currentAttempts) =>
         currentAttempts.filter((attempt) => attempt.id !== attemptId),
@@ -848,8 +885,15 @@ export function QuizPage() {
         setActiveAttemptId(null)
         setSearchParams({}, { replace: true })
       }
+      setPendingAttemptAction(null)
+      toast.success(`Archived "${attempt.title}".`)
     } catch (error) {
-      setPageError(getErrorMessage(error))
+      const message = getErrorMessage(error)
+
+      setPageError(message)
+      toast.error(message)
+    } finally {
+      setIsSubmittingAttemptAction(false)
     }
   }
 
@@ -991,6 +1035,31 @@ export function QuizPage() {
         onOpenChange={setIsQuizDialogOpen}
         onSubmitQuiz={handleSubmitQuiz}
         open={isQuizDialogOpen}
+      />
+      <ActionConfirmDialog
+        confirmLabel={
+          pendingAttemptAction?.id?.startsWith("draft-") ? "Discard draft" : "Archive"
+        }
+        description={
+          pendingAttemptAction?.id?.startsWith("draft-")
+            ? "This unsaved quiz draft will be removed."
+            : "This quiz attempt will be removed from your saved quiz list."
+        }
+        icon={pendingAttemptAction?.id?.startsWith("draft-") ? Trash2 : Archive}
+        isSubmitting={isSubmittingAttemptAction}
+        onConfirm={confirmArchiveAttempt}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingAttemptAction(null)
+          }
+        }}
+        open={Boolean(pendingAttemptAction)}
+        title={
+          pendingAttemptAction?.id?.startsWith("draft-")
+            ? "Discard draft quiz?"
+            : "Archive quiz?"
+        }
+        tone={pendingAttemptAction?.id?.startsWith("draft-") ? "destructive" : "warning"}
       />
     </WorkspaceShell>
   )

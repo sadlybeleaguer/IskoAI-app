@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { toast } from "sonner"
 
 import {
   archiveChatThread,
@@ -547,7 +548,7 @@ export function useChatWorkspace(userId, preferredThreadId = null, options = {})
 
   const handleArchiveThread = useCallback(
     async (threadId) => {
-      if (!threadId || !userId) return
+      if (!threadId || !userId) return false
 
       const isArchivingActiveThread = activeThreadIdRef.current === threadId
       if (isArchivingActiveThread && streamingThreadIdRef.current === threadId) {
@@ -559,6 +560,7 @@ export function useChatWorkspace(userId, preferredThreadId = null, options = {})
         const archived = await archiveChatThread({ threadId, userId })
         setThreads((current) => current.filter((t) => t.id !== threadId))
         setArchivedThreads((current) => [archived, ...current])
+        toast.success(`Archived "${getThreadTitle(archived.title ?? "")}".`)
 
         if (isArchivingActiveThread) {
           setActiveThreadId(null)
@@ -566,8 +568,14 @@ export function useChatWorkspace(userId, preferredThreadId = null, options = {})
           setAttachedFiles([])
           setAttachedNote(null)
         }
+
+        return true
       } catch (error) {
-        setPageError(getErrorMessage(error))
+        const message = getErrorMessage(error)
+
+        setPageError(message)
+        toast.error(message)
+        return false
       } finally {
         setDeletingThreadId("")
       }
@@ -592,13 +600,21 @@ export function useChatWorkspace(userId, preferredThreadId = null, options = {})
 
   const handleDeleteThreadPermanent = useCallback(
     async (threadId) => {
-      if (!threadId || !userId) return
+      if (!threadId || !userId) return false
+
+      const targetThread = [...threads, ...archivedThreads].find(
+        (thread) => thread.id === threadId,
+      )
+      const threadTitle = targetThread
+        ? getThreadTitle(targetThread.title ?? "")
+        : "this chat"
 
       setDeletingThreadId(threadId)
       try {
         await deleteChatThreadPermanent({ threadId, userId })
         setArchivedThreads((current) => current.filter((t) => t.id !== threadId))
         setThreads((current) => current.filter((t) => t.id !== threadId))
+        toast.success(`Deleted "${threadTitle}" permanently.`)
 
         if (activeThreadIdRef.current === threadId) {
           setActiveThreadId(null)
@@ -606,13 +622,19 @@ export function useChatWorkspace(userId, preferredThreadId = null, options = {})
           setAttachedFiles([])
           setAttachedNote(null)
         }
+
+        return true
       } catch (error) {
-        setPageError(getErrorMessage(error))
+        const message = getErrorMessage(error)
+
+        setPageError(message)
+        toast.error(message)
+        return false
       } finally {
         setDeletingThreadId("")
       }
     },
-    [userId],
+    [archivedThreads, threads, userId],
   )
 
   useEffect(() => {
@@ -1194,64 +1216,6 @@ export function useChatWorkspace(userId, preferredThreadId = null, options = {})
       return
     }
 
-    if (selectedTool === "Quiz") {
-      setIsSending(true)
-      setPageError("")
-      setDraft("")
-      setComposerNotice("")
-
-      try {
-        await flushPendingAttachmentUpdate()
-
-        let threadRecord = activeThread
-
-        if (!threadRecord) {
-          threadRecord = await createChatThread({
-            attachedNoteId: attachedNote?.id ?? null,
-            selectedTool,
-            userId,
-            title: getThreadTitle(content),
-          })
-
-          upsertThreadState(threadRecord)
-          activeThreadIdRef.current = threadRecord.id
-          setActiveThreadId(threadRecord.id)
-          setMessages([])
-        }
-
-        const userMessage = await createChatMessage({
-          threadId: threadRecord.id,
-          userId,
-          role: "user",
-          content,
-        })
-
-        if (activeThreadIdRef.current === threadRecord.id || !activeThreadIdRef.current) {
-          setMessages((currentMessages) => [...currentMessages, userMessage])
-        }
-
-        upsertThreadState(threadRecord, userMessage.created_at)
-
-        if (handleQuizPromptRef.current) {
-          await handleQuizPromptRef.current({
-            attachedNote,
-            content,
-            selectedModelKey,
-            thread: threadRecord,
-            userMessage,
-          })
-        } else {
-          setComposerNotice("Quiz prompt saved. Open the Quiz page to generate an attempt.")
-        }
-      } catch (error) {
-        setPageError(getErrorMessage(error))
-      } finally {
-        setIsSending(false)
-      }
-
-      return
-    }
-
     const abortController = new AbortController()
     let persistTimeoutId = null
     let persistInFlight = null
@@ -1491,6 +1455,10 @@ export function useChatWorkspace(userId, preferredThreadId = null, options = {})
         } else {
           removeLocalMessage(streamThreadId, tempAssistantMessageId)
         }
+      }
+
+      if (accumulatedAssistantContent.trim()) {
+        toast.success("Chat response is ready.")
       }
     } catch (error) {
       clearPersistTimer()

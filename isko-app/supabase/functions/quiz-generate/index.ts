@@ -286,6 +286,24 @@ async function loadThreadContext(supabase: SupabaseClient, threadId: string, use
     throw new HttpError(500, messagesError.message)
   }
 
+  const usableMessages = (messages ?? []).filter(
+    (message) =>
+      (message.role === "assistant" || message.role === "user") &&
+      typeof message.content === "string" &&
+      message.content.trim().length > 0,
+  )
+  const hasUserMessage = usableMessages.some((message) => message.role === "user")
+  const hasAssistantMessage = usableMessages.some(
+    (message) => message.role === "assistant",
+  )
+
+  if (!hasUserMessage || !hasAssistantMessage) {
+    throw new HttpError(
+      400,
+      "The active Quiz thread does not have enough chat context yet. Ask at least one question and wait for an assistant explanation before generating a quiz.",
+    )
+  }
+
   let noteContext = ""
   let fileContext = ""
 
@@ -322,7 +340,7 @@ async function loadThreadContext(supabase: SupabaseClient, threadId: string, use
       .slice(0, 18000)
   }
 
-  const messageContext = (messages ?? [])
+  const messageContext = usableMessages
     .slice(-8)
     .map((message) => `${message.role}: ${message.content}`)
     .join("\n\n")

@@ -113,7 +113,7 @@ export function ChatThreadItem({
                   disabled={isDeleting}
                 >
                   <Trash2 className="mr-2 size-4" />
-                  <span>Delete</span>
+                  <span>Delete permanently</span>
                 </DropdownMenuItem>
               </>
             )}

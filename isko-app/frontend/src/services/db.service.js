@@ -1489,6 +1489,20 @@ export async function archiveNote({ noteId, userId }) {
   }
 }
 
+export async function deleteNote({ noteId, userId }) {
+  const client = requireClient()
+
+  const { error } = await client
+    .from("notes")
+    .delete()
+    .eq("id", noteId)
+    .eq("user_id", userId)
+
+  if (error) {
+    throw new Error(error.message)
+  }
+}
+
 // --- Workspace Search Service Logic ---
 
 const calendarSearchWindowInMonths = 12

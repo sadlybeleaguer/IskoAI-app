@@ -1,13 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { toast } from "sonner"
 
 import {
-  archiveNote,
   createNote,
+  deleteNote as deleteStoredNote,
   listNotes,
   updateNote,
 } from "@/services/db.service"
 import { getErrorMessage } from "@/utils/errors"
-import { getInitialNoteDraft, normalizeNoteContent } from "@/utils/notes"
+import {
+  getInitialNoteDraft,
+  getNoteTitle,
+  normalizeNoteContent,
+} from "@/utils/notes"
 
 const autosaveDelayMs = 300
 
@@ -301,33 +306,57 @@ export function useNotesWorkspace(userId, preferredNoteId = null) {
     }
   }
 
-  const handleDeleteNote = async () => {
-    if (!userId || !activeNote || isDeleting) {
-      return
+  const handleDeleteNote = async (noteId = null) => {
+    const currentNote = activeNoteRef.current
+    const targetNote =
+      notes.find((note) => note.id === (noteId ?? currentNote?.id)) ?? currentNote
+    const isDeletingActiveNote = targetNote?.id === currentNote?.id
+
+    if (!userId || !targetNote || isDeleting) {
+      return { deleted: false, nextNoteId: currentNote?.id ?? null }
     }
 
-    const hasSavedCurrentDraft = await flushPendingSave()
+    const hasSavedCurrentDraft = isDeletingActiveNote
+      ? await flushPendingSave()
+      : true
 
     if (!hasSavedCurrentDraft) {
-      return
+      return { deleted: false, nextNoteId: currentNote?.id ?? null }
     }
 
     setIsDeleting(true)
     setPageError("")
 
     try {
-      await archiveNote({
-        noteId: activeNote.id,
+      await deleteStoredNote({
+        noteId: targetNote.id,
         userId,
       })
 
-      const remainingNotes = notes.filter((note) => note.id !== activeNote.id)
+      const remainingNotes = notes.filter((note) => note.id !== targetNote.id)
       setNotes(remainingNotes)
-      setActiveNoteId(remainingNotes[0]?.id ?? null)
-      return remainingNotes[0]?.id ?? null
+      const nextNoteId = isDeletingActiveNote
+        ? remainingNotes[0]?.id ?? null
+        : currentNote?.id ?? null
+
+      if (isDeletingActiveNote) {
+        setActiveNoteId(nextNoteId)
+      }
+
+      toast.success(`Deleted "${getNoteTitle(targetNote)}".`)
+      return {
+        deleted: true,
+        nextNoteId,
+      }
     } catch (error) {
-      setPageError(getErrorMessage(error))
-      return activeNote.id
+      const message = getErrorMessage(error)
+
+      setPageError(message)
+      toast.error(message)
+      return {
+        deleted: false,
+        nextNoteId: currentNote?.id ?? null,
+      }
     } finally {
       setIsDeleting(false)
     }

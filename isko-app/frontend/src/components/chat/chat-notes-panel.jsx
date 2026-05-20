@@ -1,4 +1,4 @@
-import { useRef } from "react"
+import { useRef, useState } from "react"
 import {
   Bold,
   ChevronDown,
@@ -14,10 +14,12 @@ import {
   Trash2,
   Underline,
   Undo2,
+  X,
 } from "lucide-react"
 import { useAuth } from "@/context/auth-context"
 import { useNotesWorkspace } from "@/hooks/use-notes-workspace"
 import { NotesEditor } from "@/components/notes/notes-editor"
+import { ActionConfirmDialog } from "@/components/ui/action-confirm-dialog"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
@@ -141,6 +143,8 @@ function ChatNotesPanelSkeleton() {
 export function ChatNotesPanel() {
   const { user } = useAuth()
   const editorRef = useRef(null)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [pendingDeleteNote, setPendingDeleteNote] = useState(null)
   const {
     activeNote,
     createNote,
@@ -181,14 +185,30 @@ export function ChatNotesPanel() {
                   <DropdownMenuItem
                     key={note.id}
                     onSelect={() => selectNote(note.id)}
-                    className={cn(activeNote?.id === note.id && "bg-muted")}
+                    className={cn(
+                      "group/note-item pr-1",
+                      activeNote?.id === note.id && "bg-muted",
+                    )}
                   >
-                    <div className="flex flex-col gap-0.5">
+                    <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                       <span className="truncate font-medium">{getNoteTitle(note)}</span>
                       <span className="truncate text-xs text-muted-foreground">
                         {formatNoteTimestamp(note.updated_at)}
                       </span>
                     </div>
+                    <button
+                      type="button"
+                      className="ml-auto flex size-6 shrink-0 items-center justify-center rounded-md text-destructive opacity-0 transition-opacity hover:bg-destructive/10 group-hover/note-item:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive/25"
+                      onClick={(event) => {
+                        event.preventDefault()
+                        event.stopPropagation()
+                        setPendingDeleteNote(note)
+                      }}
+                      aria-label={`Delete ${getNoteTitle(note)}`}
+                      title="Delete note"
+                    >
+                      <X className="size-3.5" />
+                    </button>
                   </DropdownMenuItem>
                 ))}
               </ScrollArea>
@@ -221,7 +241,10 @@ export function ChatNotesPanel() {
             variant="ghost"
             size="icon-sm"
             className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-            onClick={() => void deleteNote()}
+            onClick={() => {
+              setPendingDeleteNote(activeNote)
+              setIsDeleteDialogOpen(true)
+            }}
             disabled={!activeNote || isDeleting}
             title="Delete note"
           >
@@ -274,6 +297,29 @@ export function ChatNotesPanel() {
           </div>
         )}
       </div>
+      <ActionConfirmDialog
+        confirmLabel="Delete"
+        description="This note will be permanently deleted."
+        icon={Trash2}
+        isSubmitting={isDeleting}
+        onConfirm={async () => {
+          const result = await deleteNote(pendingDeleteNote?.id)
+
+          if (result?.deleted) {
+            setIsDeleteDialogOpen(false)
+            setPendingDeleteNote(null)
+          }
+        }}
+        onOpenChange={(open) => {
+          setIsDeleteDialogOpen(open)
+          if (!open) {
+            setPendingDeleteNote(null)
+          }
+        }}
+        open={isDeleteDialogOpen || Boolean(pendingDeleteNote)}
+        title="Delete note?"
+        tone="destructive"
+      />
     </div>
   )
 }
