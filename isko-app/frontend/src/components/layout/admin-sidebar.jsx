@@ -1,6 +1,5 @@
 import {
   Bot,
-  Brain,
   LogOut,
   MessageSquare,
   MoreHorizontal,
@@ -12,6 +11,7 @@ import {
 import { Link, NavLink } from "react-router-dom"
 
 import { Button } from "@/components/ui/button"
+import { SidebarLogo } from "@/components/ui/sidebar-logo"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -46,22 +46,12 @@ function AdminLogoBrand({ collapsed = false, onToggle }) {
       type="button"
       onClick={onToggle}
       className={cn(
-        "flex items-center gap-2 text-left transition-all duration-200 hover:opacity-80 active:scale-95",
+        "flex h-12 items-center rounded-xl text-left transition-all duration-300 ease-out hover:bg-primary/5 active:scale-95",
         collapsed && "w-full justify-center",
       )}
       aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
     >
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary/60 shadow-sm shadow-primary/20">
-        <Brain className="h-5 w-5 text-primary-foreground" />
-      </div>
-      {!collapsed && (
-        <div className="min-w-0">
-          <p className="truncate text-base font-bold leading-tight text-foreground">
-            IskoAI
-          </p>
-          <p className="truncate text-xs text-muted-foreground">Admin</p>
-        </div>
-      )}
+      <SidebarLogo collapsed={collapsed} contextLabel="Admin" />
     </button>
   )
 }
@@ -213,24 +203,10 @@ export function AdminSidebar({
   return (
     <div className="flex h-full flex-col bg-gradient-to-b from-sidebar via-sidebar to-muted/20 text-sidebar-foreground">
       <div className="flex items-center justify-between px-4 py-4">
-        <button
-          type="button"
-          onClick={isMobile ? undefined : onToggleCollapse}
-          className={cn(
-            "flex items-center gap-2 text-left transition-all duration-200 hover:opacity-80 active:scale-95",
-          )}
-          aria-label="Collapse sidebar"
-        >
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary/60 shadow-sm shadow-primary/20">
-            <Bot className="h-5 w-5 text-primary-foreground" />
-          </div>
-          {!isCollapsed && (
-            <div className="min-w-0">
-              <p className="truncate text-base font-medium">IskoAI</p>
-              <p className="truncate text-sm text-muted-foreground">Admin</p>
-            </div>
-          )}
-        </button>
+        <AdminLogoBrand
+          collapsed={isCollapsed}
+          onToggle={isMobile ? undefined : onToggleCollapse}
+        />
 
         {isMobile ? (
           <Button

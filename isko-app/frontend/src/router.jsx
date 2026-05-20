@@ -111,13 +111,13 @@ export function AppRouter() {
       <Routes>
         <Route path="/" element={<HomeRedirect />} />
 
-        {/* Guest Routes */}
+        {/* guest routes */}
         <Route element={<GuestOnlyRoute />}>
           <Route path="/sign-in" element={<AuthPage mode="sign-in" />} />
           <Route path="/sign-up" element={<AuthPage mode="sign-up" />} />
         </Route>
 
-        {/* Authenticated User Routes */}
+        {/* authenticated user routes */}
         <Route element={<AuthenticatedRoute />}>
           <Route path="/chat" element={<ChatWorkspaceShellPage />} />
           <Route path="/notes" element={<NotesLibraryPage />} />
@@ -126,13 +126,13 @@ export function AppRouter() {
           <Route path="/quiz" element={<QuizPage />} />
         </Route>
 
-        {/* Admin Only Routes */}
+        {/* admin only routes */}
         <Route element={<ProtectedRoute />}>
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/dashboard/models" element={<ChatModelsPage />} />
         </Route>
 
-        {/* Fallback */}
+        {/* fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

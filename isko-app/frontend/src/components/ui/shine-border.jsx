@@ -10,7 +10,11 @@ import { cn } from "@/lib/utils"
 export function ShineBorder({
   borderWidth = 1,
   duration = 14,
-  shineColor = "#000000",
+  shineColor = [
+    "color-mix(in oklch, var(--primary), transparent 20%)",
+    "color-mix(in oklch, var(--accent), transparent 36%)",
+    "color-mix(in oklch, var(--secondary), transparent 42%)",
+  ],
   className,
   style,
   ...props

@@ -25,7 +25,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { AuroraText } from "@/components/ui/aurora-text"
-import { Pointer } from "@/components/ui/pointer"
+import { SidebarLogo } from "@/components/ui/sidebar-logo"
 
 const featureGroups = [
   {
@@ -184,7 +184,7 @@ function ProductPreview() {
             <CardHeader className="grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-3 border-b border-border/50 px-5 py-5">
               <CardAction>
                 <Badge className="rounded-full border-primary/20 bg-primary/10 px-3 py-1" variant="outline">
-                  <Sparkles className="size-3.5" />
+                  
                   Active model
                 </Badge>
               </CardAction>
@@ -289,7 +289,7 @@ function ProductPreview() {
 
 export default function LandingPage() {
   return (
-    <main className="relative isolate min-h-screen overflow-hidden bg-background text-foreground [@media(pointer:coarse)]:cursor-auto">
+    <main className="relative isolate min-h-screen overflow-hidden bg-background text-foreground">
       <div
         aria-hidden="true"
         className="absolute inset-0 -z-20 bg-[linear-gradient(135deg,rgba(59,130,246,0.12),rgba(255,255,255,0.7)_32%,rgba(16,185,129,0.1)_64%,rgba(251,146,60,0.1)),linear-gradient(180deg,rgba(255,255,255,0.8),rgba(248,250,252,0.98))] dark:bg-[linear-gradient(135deg,rgba(59,130,246,0.18),rgba(15,23,42,0.8)_32%,rgba(16,185,129,0.1)_64%,rgba(251,146,60,0.12)),linear-gradient(180deg,rgba(2,6,23,0.96),rgba(15,23,42,1))]"
@@ -301,16 +301,13 @@ export default function LandingPage() {
 
       <nav className="sticky top-0 z-50 border-b border-border/50 bg-background/70 backdrop-blur-xl">
         <div className={`${sectionShellClassName} flex items-center justify-between gap-4 py-4`}>
-          <Link to="/" className="flex min-w-0 items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary/70 text-primary-foreground shadow-lg shadow-primary/20">
-              <Brain className="size-5" />
-            </div>
-            <div className="min-w-0">
-              <div className="truncate text-sm font-semibold tracking-tight">
-                IskoAI
-              </div>
-              <div className="text-xs text-muted-foreground">Student workspace</div>
-            </div>
+          <Link
+            to="/"
+            className="flex min-w-0 items-center rounded-xl transition-opacity duration-200 hover:opacity-85"
+            aria-label="IskoAI home"
+          >
+            <SidebarLogo collapsed className="sm:hidden" contextLabel="Home" />
+            <SidebarLogo className="hidden sm:flex" contextLabel="Home" />
           </Link>
 
           <div className="hidden items-center gap-6 md:flex">
@@ -600,17 +597,10 @@ export default function LandingPage() {
       <footer className="border-t border-border/50 bg-background/70">
         <div className={`${sectionShellClassName} flex flex-col gap-5 py-8 lg:flex-row lg:items-center lg:justify-between`}>
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary/70 text-primary-foreground">
-              <Brain className="size-5" />
-            </div>
-            <div>
-              <div className="text-sm font-semibold tracking-tight">
-                IskoAI
-              </div>
-              <div className="text-xs text-muted-foreground">
-                Chat, notes, calendar, and quiz in one workspace
-              </div>
-            </div>
+            <SidebarLogo className="w-32" contextLabel="Footer" />
+            <p className="text-xs text-muted-foreground">
+              Chat, notes, calendar, and quiz in one workspace
+            </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-5 text-sm text-muted-foreground">
@@ -632,33 +622,6 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
-      <Pointer>
-        <svg
-          aria-hidden="true"
-          className="h-6 w-6 rotate-[-70deg] drop-shadow-[0_6px_14px_rgba(37,99,235,0.35)]"
-          fill="url(#isko-pointer-gradient)"
-          stroke="white"
-          strokeWidth="1.2"
-          viewBox="0 0 16 16"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <defs>
-            <linearGradient
-              id="isko-pointer-gradient"
-              x1="2"
-              x2="14"
-              y1="2"
-              y2="14"
-              gradientUnits="userSpaceOnUse"
-            >
-              <stop stopColor="#2563eb" />
-              <stop offset="0.52" stopColor="#3b82f6" />
-              <stop offset="1" stopColor="#93c5fd" />
-            </linearGradient>
-          </defs>
-          <path d="M14.082 2.182a.5.5 0 0 1 .103.557L8.528 15.467a.5.5 0 0 1-.917-.007L5.57 10.694.803 8.652a.5.5 0 0 1-.006-.916l12.728-5.657a.5.5 0 0 1 .556.103z" />
-        </svg>
-      </Pointer>
     </main>
   )
 }

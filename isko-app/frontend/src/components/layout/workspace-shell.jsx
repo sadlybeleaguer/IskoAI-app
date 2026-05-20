@@ -13,7 +13,6 @@ import {
   Settings,
   Shield,
   X,
-  Brain,
 } from "lucide-react"
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom"
 
@@ -21,6 +20,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { SettingsDialog } from "@/components/settings/settings-dialog"
 import { WorkspaceSearch } from "@/components/layout/workspace-search"
 import { Button } from "@/components/ui/button"
+import { SidebarLogo } from "@/components/ui/sidebar-logo"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -156,22 +156,12 @@ export function WorkspaceShell({
       type="button"
       onClick={onToggle}
       className={cn(
-        "flex items-center gap-2 text-left transition-all duration-200 hover:opacity-80 active:scale-95",
+        "flex h-12 items-center rounded-xl text-left transition-all duration-300 ease-out hover:bg-primary/5 active:scale-95",
         collapsed && "justify-center w-full",
       )}
       aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
     >
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary/60 shadow-sm shadow-primary/20">
-        <Brain className="h-5 w-5 text-primary-foreground" />
-      </div>
-      {!collapsed && (
-        <div className="min-w-0">
-          <p className="truncate text-base font-bold leading-tight text-foreground">
-            IskoAI
-          </p>
-          <p className="truncate text-xs text-muted-foreground">Workspace</p>
-        </div>
-      )}
+      <SidebarLogo collapsed={collapsed} contextLabel="Workspace" />
     </button>
   )
 

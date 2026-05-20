@@ -31,6 +31,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { SidebarLogo } from "@/components/ui/sidebar-logo"
 import { Textarea } from "@/components/ui/textarea"
 import { useAuth } from "@/context/auth-context"
 import { supabase } from "@/lib/supabaseClient"
@@ -399,10 +400,7 @@ export function ChatPage() {
   const renderSidebar = (mobile = false) => (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b px-4 py-4">
-        <div className="min-w-0">
-          <p className="truncate text-lg font-medium">IskoAI</p>
-          <p className="truncate text-sm text-muted-foreground">Workspace</p>
-        </div>
+        <SidebarLogo contextLabel="Workspace" />
         {mobile ? (
           <Button
             type="button"

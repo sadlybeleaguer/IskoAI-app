@@ -3,15 +3,8 @@
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
 
-/* ---------------------------
-   THEME VARIANT
---------------------------- */
 @custom-variant dark (&:is(.dark *));
 
-/* ---------------------------
-   THEME TOKENS (SHADCN STYLE)
-   using SECOND FILE COLORS
---------------------------- */
 :root {
   --background: oklch(0.98 0.001 262.8);
   --foreground: oklch(0.2 0.01 262.8);
@@ -92,10 +85,6 @@
   --grain-opacity: 0.065;
 }
 
-/* ---------------------------
-   TAILWIND THEME MAPPING
-   (FROM FIRST FILE + CLEANED)
---------------------------- */
 @theme inline {
   --font-sans: "Geist Variable", sans-serif;
   --font-heading: var(--font-sans);
@@ -191,9 +180,6 @@
   }
 }
 
-/* ---------------------------
-   BASE LAYER (MERGED UX STYLE)
---------------------------- */
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -221,9 +207,6 @@
     @apply transition-colors;
   }
 
-  /* ---------------------------
-     SOFT UI ENHANCEMENTS (FROM SECOND FILE)
-  --------------------------- */
 
   button {
     @apply transition-all duration-200;
