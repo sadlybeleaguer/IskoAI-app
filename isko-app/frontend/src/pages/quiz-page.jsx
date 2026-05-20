@@ -934,11 +934,14 @@ export function QuizPage() {
             <ChatModelMenu
               isLoadingModels={chat.isLoadingModels}
               models={chat.availableModels}
+              selectedModelDescription={chat.selectedModelDescription}
               selectedModelKey={chat.selectedModelKey}
               selectedModelLabel={chat.selectedModelLabel}
               setSelectedModelKey={chat.setSelectedModelKey}
             />
-            <div className="truncate text-xs text-muted-foreground">Quiz model</div>
+            <div className="max-w-[22rem] truncate text-xs text-muted-foreground">
+              {chat.selectedModelDescription || "Quiz model"}
+            </div>
           </div>
 
           <div className="ml-auto flex items-center gap-2">

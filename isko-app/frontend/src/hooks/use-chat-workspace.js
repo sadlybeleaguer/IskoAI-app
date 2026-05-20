@@ -1562,6 +1562,7 @@ export function useChatWorkspace(userId, preferredThreadId = null, options = {})
     removingFolderFileId,
     restoreThread: handleRestoreThread,
     selectedModelKey,
+    selectedModelDescription: selectedModel?.description ?? "",
     selectedModelLabel: selectedModel?.label ?? "",
     selectedTool,
     setAttachedNote: handleAttachedNoteChange,

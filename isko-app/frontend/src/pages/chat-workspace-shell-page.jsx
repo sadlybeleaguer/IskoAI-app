@@ -139,6 +139,7 @@ export function ChatWorkspaceShellPage() {
     isLoadingModels,
     isEphemeral,
     selectedModelKey,
+    selectedModelDescription,
     selectedModelLabel,
     selectedTool,
     isNotePickerOpen,
@@ -350,11 +351,14 @@ export function ChatWorkspaceShellPage() {
             <ChatModelMenu
               isLoadingModels={isLoadingModels}
               models={availableModels}
+              selectedModelDescription={selectedModelDescription}
               selectedModelKey={selectedModelKey}
               selectedModelLabel={selectedModelLabel}
               setSelectedModelKey={setSelectedModelKey}
             />
-            <div className="truncate text-xs text-muted-foreground">Active model</div>
+            <div className="max-w-[22rem] truncate text-xs text-muted-foreground">
+              {selectedModelDescription || "Active model"}
+            </div>
           </div>
 
           <div className="ml-auto flex items-center gap-2">

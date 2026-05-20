@@ -37,6 +37,7 @@ import { cn } from "@/utils/cn"
 export function ChatModelMenu({
   isLoadingModels = false,
   models,
+  selectedModelDescription = "",
   selectedModelKey,
   selectedModelLabel,
   setSelectedModelKey,
@@ -63,7 +64,7 @@ export function ChatModelMenu({
           </div>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-48">
+      <DropdownMenuContent align="start" className="w-72">
         <DropdownMenuLabel>Model</DropdownMenuLabel>
         <DropdownMenuSeparator />
         {models.length ? (
@@ -73,7 +74,12 @@ export function ChatModelMenu({
           >
             {models.map((model) => (
               <DropdownMenuRadioItem key={model.key} value={model.key}>
-                {model.label}
+                <div className="flex min-w-0 flex-col gap-0.5">
+                  <span className="truncate">{model.label}</span>
+                  <span className="line-clamp-2 text-xs text-muted-foreground">
+                    {model.description}
+                  </span>
+                </div>
               </DropdownMenuRadioItem>
             ))}
           </DropdownMenuRadioGroup>
@@ -82,6 +88,14 @@ export function ChatModelMenu({
             {isLoadingModels ? <Skeleton className="h-4 w-32" /> : "No models available"}
           </DropdownMenuItem>
         )}
+        {!isLoadingModels && selectedModelDescription ? (
+          <>
+            <DropdownMenuSeparator />
+            <div className="px-2 py-1.5 text-xs text-muted-foreground">
+              {selectedModelDescription}
+            </div>
+          </>
+        ) : null}
       </DropdownMenuContent>
     </DropdownMenu>
   )
