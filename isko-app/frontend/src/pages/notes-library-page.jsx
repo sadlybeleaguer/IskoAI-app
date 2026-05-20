@@ -1,13 +1,15 @@
 import { useEffect, useState } from "react"
-import { ChevronRight, Plus } from "lucide-react"
+import { Plus, Trash2, X } from "lucide-react"
 import { useNavigate } from "react-router-dom"
+import { toast } from "sonner"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { NotesEmptyStateCard } from "@/components/notes/notes-empty-state"
 import { WorkspaceShell } from "@/components/layout/workspace-shell"
+import { ActionConfirmDialog } from "@/components/ui/action-confirm-dialog"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useAuth } from "@/context/auth-context"
-import { createNote, listNotes } from "@/services/db.service"
+import { createNote, deleteNote, listNotes } from "@/services/db.service"
 import { getErrorMessage } from "@/utils/errors"
 import {
   formatNoteTimestamp,
@@ -15,27 +17,37 @@ import {
   getNoteTitle,
 } from "@/utils/notes"
 
-function NotesLibraryCard({ note, onOpenNote }) {
+function NotesLibraryCard({ note, onDeleteNote, onOpenNote }) {
   return (
-    <button
-      type="button"
-      className="flex w-full items-start justify-between gap-4 rounded-lg border bg-background px-4 py-4 text-left transition-colors hover:bg-muted/40"
-      onClick={() => onOpenNote(note.id)}
-    >
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-medium tracking-[-0.01em]">
-          {getNoteTitle(note)}
+    <div className="group flex w-full items-start justify-between gap-3 rounded-lg border bg-background px-4 py-4 text-left transition-colors hover:bg-muted/40">
+      <button
+        type="button"
+        className="min-w-0 flex-1 text-left"
+        onClick={() => onOpenNote(note.id)}
+      >
+        <div className="min-w-0">
+          <div className="truncate text-sm font-medium tracking-[-0.01em]">
+            {getNoteTitle(note)}
+          </div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            {formatNoteTimestamp(note.updated_at)}
+          </div>
+          <div className="mt-3 line-clamp-2 text-sm leading-6 text-muted-foreground">
+            {getNotePreview(note)}
+          </div>
         </div>
-        <div className="mt-1 text-xs text-muted-foreground">
-          {formatNoteTimestamp(note.updated_at)}
-        </div>
-        <div className="mt-3 line-clamp-2 text-sm leading-6 text-muted-foreground">
-          {getNotePreview(note)}
-        </div>
-      </div>
+      </button>
 
-      <ChevronRight className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-    </button>
+      <button
+        type="button"
+        className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-md text-destructive opacity-0 transition-opacity hover:bg-destructive/10 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive/25"
+        onClick={() => onDeleteNote(note)}
+        aria-label={`Delete ${getNoteTitle(note)}`}
+        title="Delete note"
+      >
+        <X className="size-4" />
+      </button>
+    </div>
   )
 }
 
@@ -67,6 +79,8 @@ export function NotesLibraryPage() {
   const [notes, setNotes] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [isCreating, setIsCreating] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [pendingDeleteNote, setPendingDeleteNote] = useState(null)
   const [pageError, setPageError] = useState("")
 
   useEffect(() => {
@@ -125,6 +139,31 @@ export function NotesLibraryPage() {
     }
   }
 
+  const handleDeleteNote = async () => {
+    if (!user?.id || !pendingDeleteNote || isDeleting) {
+      return
+    }
+
+    setIsDeleting(true)
+    setPageError("")
+
+    try {
+      await deleteNote({ noteId: pendingDeleteNote.id, userId: user.id })
+      setNotes((currentNotes) =>
+        currentNotes.filter((note) => note.id !== pendingDeleteNote.id),
+      )
+      toast.success(`Deleted "${getNoteTitle(pendingDeleteNote)}".`)
+      setPendingDeleteNote(null)
+    } catch (error) {
+      const message = getErrorMessage(error)
+
+      setPageError(message)
+      toast.error(message)
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
   const alerts = pageError ? (
     <Alert variant="destructive">
       <AlertTitle>Notes unavailable</AlertTitle>
@@ -165,6 +204,7 @@ export function NotesLibraryPage() {
                 <NotesLibraryCard
                   key={note.id}
                   note={note}
+                  onDeleteNote={setPendingDeleteNote}
                   onOpenNote={(noteId) => navigate(`/notes/${noteId}`)}
                 />
               ))}
@@ -178,6 +218,21 @@ export function NotesLibraryPage() {
           )}
         </div>
       </div>
+      <ActionConfirmDialog
+        confirmLabel="Delete"
+        description="This note will be permanently deleted."
+        icon={Trash2}
+        isSubmitting={isDeleting}
+        onConfirm={handleDeleteNote}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingDeleteNote(null)
+          }
+        }}
+        open={Boolean(pendingDeleteNote)}
+        title="Delete note?"
+        tone="destructive"
+      />
     </WorkspaceShell>
   )
 }

@@ -1,5 +1,5 @@
-import { useEffect, useRef } from "react"
-import { Plus } from "lucide-react"
+import { useEffect, useRef, useState } from "react"
+import { Plus, Trash2 } from "lucide-react"
 import { useNavigate, useParams } from "react-router-dom"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -7,6 +7,7 @@ import { NotesHeader } from "@/components/notes/notes-header"
 import { NotesEditor } from "@/components/notes/notes-editor"
 import { NotesEmptyState } from "@/components/notes/notes-empty-state"
 import { WorkspaceShell } from "@/components/layout/workspace-shell"
+import { ActionConfirmDialog } from "@/components/ui/action-confirm-dialog"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useAuth } from "@/context/auth-context"
 import { useNotesWorkspace } from "@/hooks/use-notes-workspace"
@@ -48,6 +49,7 @@ export function NotesEditorPage() {
   const navigate = useNavigate()
   const { noteId } = useParams()
   const editorRef = useRef(null)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const {
     activeNote,
     createNote,
@@ -119,15 +121,7 @@ export function NotesEditorPage() {
                 draft={draft}
                 editorRef={editorRef}
                 isDeleting={isDeleting}
-                onDeleteNote={async () => {
-                  const nextNoteId = await deleteNote()
-
-                  if (nextNoteId) {
-                    navigate(`/notes/${nextNoteId}`)
-                  } else {
-                    navigate("/notes")
-                  }
-                }}
+                onDeleteNote={() => setIsDeleteDialogOpen(true)}
                 onTitleChange={(title) =>
                   setDraft((currentDraft) => ({
                     ...currentDraft,
@@ -156,6 +150,31 @@ export function NotesEditorPage() {
           />
         )}
       </div>
+      <ActionConfirmDialog
+        confirmLabel="Delete"
+        description="This note will be permanently deleted."
+        icon={Trash2}
+        isSubmitting={isDeleting}
+        onConfirm={async () => {
+          const result = await deleteNote()
+
+          if (!result?.deleted) {
+            return
+          }
+
+          setIsDeleteDialogOpen(false)
+
+          if (result.nextNoteId) {
+            navigate(`/notes/${result.nextNoteId}`)
+          } else {
+            navigate("/notes")
+          }
+        }}
+        onOpenChange={setIsDeleteDialogOpen}
+        open={isDeleteDialogOpen}
+        title="Delete note?"
+        tone="destructive"
+      />
     </WorkspaceShell>
   )
 }

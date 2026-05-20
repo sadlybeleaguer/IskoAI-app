@@ -1,6 +1,7 @@
-import { MessageSquarePlus, FileText, Ghost } from "lucide-react"
+import { Archive, MessageSquarePlus, FileText, Ghost, Trash2 } from "lucide-react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { useCallback, useState } from "react"
+import { toast } from "sonner"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -11,6 +12,7 @@ import { ChatSidebar } from "@/components/chat/chat-sidebar"
 import { ChatNotesPanel } from "@/components/chat/chat-notes-panel"
 import { QuizAttemptDialog } from "@/components/quiz/quiz-attempt-dialog"
 import { WorkspaceShell } from "@/components/layout/workspace-shell"
+import { ActionConfirmDialog } from "@/components/ui/action-confirm-dialog"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/context/auth-context"
 import { useChatWorkspace } from "@/hooks/use-chat-workspace"
@@ -48,6 +50,7 @@ export function ChatWorkspaceShellPage() {
   const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false)
   const [isGradingQuiz, setIsGradingQuiz] = useState(false)
   const [quizError, setQuizError] = useState("")
+  const [pendingThreadAction, setPendingThreadAction] = useState(null)
 
   const handleQuizPrompt = useCallback(
     async ({ attachedNote, content, selectedModelKey, thread }) => {
@@ -84,7 +87,7 @@ export function ChatWorkspaceShellPage() {
 
         setQuizAttempt(attempt)
         setQuizAnswers(normalizeQuizAnswerMap(attempt))
-        setIsQuizDialogOpen(true)
+        toast.success("Quiz generated. Click Take quiz when you're ready.")
       } catch (error) {
         setQuizError(getErrorMessage(error))
       } finally {
@@ -136,6 +139,7 @@ export function ChatWorkspaceShellPage() {
     isLoadingModels,
     isEphemeral,
     selectedModelKey,
+    selectedModelDescription,
     selectedModelLabel,
     selectedTool,
     isNotePickerOpen,
@@ -184,6 +188,38 @@ export function ChatWorkspaceShellPage() {
       setIsEphemeral(true)
     } else {
       setIsEphemeral(false)
+    }
+  }
+
+  const confirmThreadAction = async () => {
+    if (!pendingThreadAction?.threadId) {
+      return
+    }
+
+    const { threadId, type } = pendingThreadAction
+
+    if (type === "archive") {
+      if (preferredThreadId === threadId || activeThreadId === threadId) {
+        setSearchParams({}, { replace: true })
+      }
+
+      const wasArchived = await archiveThread(threadId)
+
+      if (wasArchived) {
+        setPendingThreadAction(null)
+      }
+
+      return
+    }
+
+    const wasDeleted = await deleteThreadPermanent(threadId)
+
+    if (wasDeleted) {
+      if (preferredThreadId === threadId || activeThreadId === threadId) {
+        setSearchParams({}, { replace: true })
+      }
+
+      setPendingThreadAction(null)
     }
   }
 
@@ -315,11 +351,14 @@ export function ChatWorkspaceShellPage() {
             <ChatModelMenu
               isLoadingModels={isLoadingModels}
               models={availableModels}
+              selectedModelDescription={selectedModelDescription}
               selectedModelKey={selectedModelKey}
               selectedModelLabel={selectedModelLabel}
               setSelectedModelKey={setSelectedModelKey}
             />
-            <div className="truncate text-xs text-muted-foreground">Active model</div>
+            <div className="max-w-[22rem] truncate text-xs text-muted-foreground">
+              {selectedModelDescription || "Active model"}
+            </div>
           </div>
 
           <div className="ml-auto flex items-center gap-2">
@@ -363,7 +402,9 @@ export function ChatWorkspaceShellPage() {
           archivedThreads={archivedThreads}
           createFolder={createFolder}
           deleteFolder={deleteFolder}
-          deleteThreadPermanent={deleteThreadPermanent}
+          deleteThreadPermanent={(threadId) =>
+            setPendingThreadAction({ threadId, type: "delete" })
+          }
           deletingThreadId={deletingThreadId}
           folders={folders}
           getFolderFiles={getFolderFiles}
@@ -378,12 +419,9 @@ export function ChatWorkspaceShellPage() {
           loadAvailableNotes={loadAvailableNotes}
           loadFolderFiles={loadFolderFiles}
           moveThreadToFolder={moveThreadToFolder}
-          onArchiveThread={(threadId) => {
-            if (preferredThreadId === threadId || activeThreadId === threadId) {
-              setSearchParams({}, { replace: true })
-            }
-            void archiveThread(threadId)
-          }}
+          onArchiveThread={(threadId) =>
+            setPendingThreadAction({ threadId, type: "archive" })
+          }
           onRestoreThread={restoreThread}
           onSelectThread={handleSelectThread}
           availableNotes={availableNotes}
@@ -516,6 +554,34 @@ export function ChatWorkspaceShellPage() {
 
         {isNotesPanelOpen && <ChatNotesPanel />}
       </div>
+      <ActionConfirmDialog
+        confirmLabel={
+          pendingThreadAction?.type === "archive" ? "Archive" : "Delete permanently"
+        }
+        description={
+          pendingThreadAction?.type === "archive"
+            ? "This chat will move to Archive and can be restored later."
+            : "This chat will be permanently deleted and cannot be undone."
+        }
+        icon={pendingThreadAction?.type === "archive" ? Archive : Trash2}
+        isSubmitting={
+          Boolean(pendingThreadAction?.threadId) &&
+          deletingThreadId === pendingThreadAction.threadId
+        }
+        onConfirm={confirmThreadAction}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingThreadAction(null)
+          }
+        }}
+        open={Boolean(pendingThreadAction)}
+        title={
+          pendingThreadAction?.type === "archive"
+            ? "Archive chat?"
+            : "Delete chat permanently?"
+        }
+        tone={pendingThreadAction?.type === "archive" ? "warning" : "destructive"}
+      />
     </WorkspaceShell>
   )
 }

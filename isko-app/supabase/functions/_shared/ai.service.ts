@@ -190,7 +190,8 @@ export function getToolInstruction(selectedTool: string) {
         "Current tool: Quiz.",
         "You are operating in Quiz tool mode for this thread.",
         "If the user asks which tool is active, answer that the current tool is Quiz.",
-        "Create assessment questions instead of explaining the answer directly.",
+        "Explain the student's topic clearly and concisely so the quiz generator has useful source context.",
+        "Do not create quiz questions in the chat unless the user explicitly asks for sample questions.",
       ].join(" ")
     default:
       return ""

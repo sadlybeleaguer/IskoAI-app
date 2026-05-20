@@ -907,26 +907,66 @@ export async function updateChatMessage({ messageId, userId, content }) {
 
 export const defaultChatModels = [
   {
+    description: "Balanced general model for explanations, summaries, and study chat.",
     key: "MiniMaxAI/MiniMax-M2.7:together",
     label: "MiniMaxAI/MiniMax-M2.7:together",
     provider: "huggingface-router",
   },
   {
+    description: "Routes to an available free model; responses can vary by provider capacity.",
     key: "openrouter/free",
     label: "OpenRouter Free Router",
     provider: "openrouter",
   },
   {
+    description: "Open-weight Google model for concise reasoning and study explanations.",
     key: "google/gemma-4-26b-a4b-it:free",
     label: "Google Gemma 4 26B A4B (Free)",
     provider: "openrouter",
   },
   {
+    description: "OpenAI open-weight model for general chat, reasoning, and quiz support.",
     key: "openai/gpt-oss-20b:free",
     label: "OpenAI GPT-OSS 20B (Free)",
     provider: "openrouter",
   },
 ]
+
+function getChatModelDescription(model) {
+  const key = model?.key ?? ""
+  const label = model?.label ?? ""
+  const provider = model?.provider ?? ""
+  const searchable = `${key} ${label}`.toLowerCase()
+
+  if (searchable.includes("openrouter/free")) {
+    return "Routes to an available free model; responses can vary by provider capacity."
+  }
+
+  if (searchable.includes("gemma")) {
+    return "Open-weight Google model for concise reasoning and study explanations."
+  }
+
+  if (searchable.includes("gpt-oss")) {
+    return "OpenAI open-weight model for general chat, reasoning, and quiz support."
+  }
+
+  if (searchable.includes("minimax")) {
+    return "Balanced general model for explanations, summaries, and study chat."
+  }
+
+  if (provider === "openrouter") {
+    return "OpenRouter-hosted model for general chat and quiz generation."
+  }
+
+  return "General-purpose model for chat, explanations, and study workflows."
+}
+
+function normalizeChatModel(model) {
+  return {
+    ...model,
+    description: model?.description || getChatModelDescription(model),
+  }
+}
 
 export async function listAvailableChatModels() {
   if (!supabase) {
@@ -948,7 +988,7 @@ export async function listAvailableChatModels() {
     throw new Error(error.message)
   }
 
-  return data ?? []
+  return (data ?? []).map(normalizeChatModel)
 }
 
 // --- Quiz Service Logic ---
@@ -1483,6 +1523,20 @@ export async function archiveNote({ noteId, userId }) {
     .eq("id", noteId)
     .eq("user_id", userId)
     .is("archived_at", null)
+
+  if (error) {
+    throw new Error(error.message)
+  }
+}
+
+export async function deleteNote({ noteId, userId }) {
+  const client = requireClient()
+
+  const { error } = await client
+    .from("notes")
+    .delete()
+    .eq("id", noteId)
+    .eq("user_id", userId)
 
   if (error) {
     throw new Error(error.message)
