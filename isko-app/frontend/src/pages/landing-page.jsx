@@ -10,9 +10,9 @@ import {
   MessageSquare,
   Search,
   Shield,
-  Sparkles,
 } from "lucide-react"
 
+import { MarketingNav } from "@/components/marketing/marketing-nav"
 import { Badge } from "@/components/ui/badge"
 import { BentoCard, BentoGrid } from "@/components/ui/bento-grid"
 import { Button } from "@/components/ui/button"
@@ -299,51 +299,7 @@ export default function LandingPage() {
         className="absolute inset-x-0 top-0 -z-10 h-[32rem] bg-[linear-gradient(180deg,rgba(255,255,255,0.26),transparent)] dark:bg-[linear-gradient(180deg,rgba(255,255,255,0.05),transparent)]"
       />
 
-      <nav className="sticky top-0 z-50 border-b border-border/50 bg-background/70 backdrop-blur-xl">
-        <div className={`${sectionShellClassName} flex items-center justify-between gap-4 py-4`}>
-          <Link
-            to="/"
-            className="flex min-w-0 items-center rounded-xl transition-opacity duration-200 hover:opacity-85"
-            aria-label="IskoAI home"
-          >
-            <SidebarLogo collapsed className="sm:hidden" contextLabel="Home" />
-            <SidebarLogo className="hidden sm:flex" contextLabel="Home" />
-          </Link>
-
-          <div className="hidden items-center gap-6 md:flex">
-            <a
-              href="#workspace"
-              className="text-sm text-muted-foreground transition-colors hover:text-primary"
-            >
-              Workspace
-            </a>
-            <a
-              href="#flow"
-              className="text-sm text-muted-foreground transition-colors hover:text-primary"
-            >
-              Study Flow
-            </a>
-            <a
-              href="#control"
-              className="text-sm text-muted-foreground transition-colors hover:text-primary"
-            >
-              Control
-            </a>
-          </div>
-
-          <div className="flex shrink-0 items-center gap-2">
-            <Button asChild variant="ghost" className="hidden rounded-full px-4 hover:text-primary sm:inline-flex">
-              <Link to="/sign-in">Sign in</Link>
-            </Button>
-            <Button asChild className="rounded-full px-4 sm:px-5">
-              <Link to="/sign-up">
-                Create account
-                <ArrowRight data-icon="inline-end" />
-              </Link>
-            </Button>
-          </div>
-        </div>
-      </nav>
+      <MarketingNav />
 
       <section className={`${sectionShellClassName} min-h-[calc(100svh-4.5rem)] pb-10 pt-8 sm:pt-10 lg:pb-12 lg:pt-10`}>
         <div className="grid gap-10 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] lg:items-center lg:gap-14 xl:gap-16">

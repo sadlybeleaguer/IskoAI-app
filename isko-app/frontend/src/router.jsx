@@ -5,6 +5,7 @@ import { CalendarPage } from "@/pages/calendar-page"
 import { ChatModelsPage } from "@/pages/chat-models-page"
 import { ChatWorkspaceShellPage } from "@/pages/chat-workspace-shell-page"
 import { DashboardPage } from "@/pages/dashboard-page"
+import { DevelopersPage } from "@/pages/developers-page"
 import { NotesLibraryPage } from "@/pages/notes-library-page"
 import { NotesEditorPage } from "@/pages/notes-page"
 import { QuizPage } from "@/pages/quiz-page"
@@ -110,6 +111,7 @@ export function AppRouter() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<HomeRedirect />} />
+        <Route path="/developers" element={<DevelopersPage />} />
 
         {/* guest routes */}
         <Route element={<GuestOnlyRoute />}>
